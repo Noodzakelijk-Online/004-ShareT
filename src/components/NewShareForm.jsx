@@ -7,9 +7,10 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrig
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/use-toast";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { toast } from "sonner";
 
 const NewShareForm = ({ shareType, setShareType, cardCount, setCardCount, credits, freeSharesLeft, updateCredits, onCreateLink, trelloData, onShowQRCode }) => {
-  const { toast } = useToast();
+  const { toast: uiToast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
   const [selectedList, setSelectedList] = useState(null);
   const [generatedUrls, setGeneratedUrls] = useState(null);
@@ -27,7 +28,7 @@ const NewShareForm = ({ shareType, setShareType, cardCount, setCardCount, credit
   const handleCreateShare = () => {
     const cost = calculateCost();
     if (cost > credits) {
-      toast({
+      uiToast({
         title: "Insufficient credits",
         description: "Please purchase more credits to create this share.",
         variant: "destructive",
@@ -37,7 +38,7 @@ const NewShareForm = ({ shareType, setShareType, cardCount, setCardCount, credit
 
     // Validate expiry date
     if (expiryDate && new Date(expiryDate) <= new Date()) {
-      toast({
+      uiToast({
         title: "Invalid expiry date",
         description: "Please select a future date for expiry.",
         variant: "destructive",
@@ -61,10 +62,7 @@ const NewShareForm = ({ shareType, setShareType, cardCount, setCardCount, credit
     // Update credits
     onCreateLink();
 
-    toast({
-      title: "Share link(s) created",
-      description: "The share link(s) have been created successfully.",
-    });
+    toast("Share link(s) created successfully");
   };
 
   return (

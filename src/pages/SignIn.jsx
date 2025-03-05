@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ const SignIn = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { signIn } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -30,8 +31,10 @@ const SignIn = () => {
     setIsSubmitting(true);
     try {
       await signIn(email, password);
+      // Navigation is handled in the signIn function
     } catch (error) {
       console.error('Error signing in:', error);
+      // Error handling is done in the signIn function
     } finally {
       setIsSubmitting(false);
     }
