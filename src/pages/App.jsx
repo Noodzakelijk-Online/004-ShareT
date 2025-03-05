@@ -1,10 +1,11 @@
+
 import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import TrelloConnect from '../components/TrelloConnect';
 import { useNavigate } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { LogOut } from "lucide-react";
+import { LogOut, BookOpen } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useCredits } from '../hooks/useCredits';
@@ -14,6 +15,7 @@ import NewShareForm from '../components/NewShareForm';
 import PreviousLinks from '../components/PreviousLinks';
 import UserProfile from '../components/UserProfile';
 import { useAuth } from '../contexts/AuthContext';
+import ApiDocumentation from '../components/ApiDocumentation';
 
 const App = () => {
   const navigate = useNavigate();
@@ -25,6 +27,7 @@ const App = () => {
   const [trelloData, setTrelloData] = useState(null);
   const [showQRCode, setShowQRCode] = useState(false);
   const [currentShareLink, setCurrentShareLink] = useState('');
+  const [showApiDocs, setShowApiDocs] = useState(false);
   const { toast } = useToast();
 
   const cost = useMemo(() => {
@@ -64,9 +67,20 @@ const App = () => {
           <CardHeader>
             <div className="flex justify-between items-center">
               <CardTitle>External Share</CardTitle>
-              <Button variant="ghost" size="sm" onClick={() => navigate('/')}>
-                Back to Home
-              </Button>
+              <div className="flex space-x-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setShowApiDocs(true)}
+                  className="flex items-center"
+                >
+                  <BookOpen className="mr-2 h-4 w-4" />
+                  API Docs
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => navigate('/')}>
+                  Back to Home
+                </Button>
+              </div>
             </div>
             <div className="flex justify-between items-center mt-2">
               {!trelloData ? (
@@ -122,6 +136,7 @@ const App = () => {
           </CardContent>
         </Card>
       </div>
+      
       {showQRCode && (
         <Dialog open={showQRCode} onOpenChange={setShowQRCode}>
           <DialogContent>
@@ -133,6 +148,20 @@ const App = () => {
             </div>
             <DialogFooter>
               <Button onClick={() => setShowQRCode(false)}>Close</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+      
+      {showApiDocs && (
+        <Dialog open={showApiDocs} onOpenChange={setShowApiDocs} className="max-w-4xl">
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>API Documentation</DialogTitle>
+            </DialogHeader>
+            <ApiDocumentation />
+            <DialogFooter>
+              <Button onClick={() => setShowApiDocs(false)}>Close</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

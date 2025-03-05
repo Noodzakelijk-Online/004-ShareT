@@ -1,12 +1,12 @@
 
 import { useState } from 'react';
-import { CopyBlock, dracula } from 'react-code-blocks';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Clipboard, Key } from 'lucide-react';
 import { toast } from 'sonner';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const codeSnippets = {
   node: `// Using Node.js with Axios
@@ -110,7 +110,7 @@ const endpoints = [
   }
 ];
 
-export const ApiDocumentation = () => {
+const ApiDocumentation = () => {
   const [language, setLanguage] = useState('node');
   const [activeTab, setActiveTab] = useState('overview');
   
@@ -175,48 +175,50 @@ export const ApiDocumentation = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-6">
-                {endpoints.map((endpoint, index) => (
-                  <div key={index} className="space-y-2">
-                    <div className="flex items-center space-x-2">
-                      <span className={`px-2 py-1 rounded-md text-sm text-white font-semibold ${
-                        endpoint.method === 'GET' ? 'bg-blue-600' : 
-                        endpoint.method === 'POST' ? 'bg-green-600' : 
-                        endpoint.method === 'PUT' ? 'bg-orange-600' : 
-                        endpoint.method === 'DELETE' ? 'bg-red-600' : ''
-                      }`}>
-                        {endpoint.method}
-                      </span>
-                      <code className="text-sm">{endpoint.path}</code>
-                    </div>
-                    <p className="text-sm text-muted-foreground">{endpoint.description}</p>
-                    
-                    <div className="pt-2">
-                      <h4 className="text-sm font-semibold mb-2">Parameters</h4>
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Name</TableHead>
-                            <TableHead>Type</TableHead>
-                            <TableHead>Required</TableHead>
-                            <TableHead>Description</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {endpoint.parameters.map((param, paramIndex) => (
-                            <TableRow key={paramIndex}>
-                              <TableCell className="font-medium">{param.name}</TableCell>
-                              <TableCell>{param.type}</TableCell>
-                              <TableCell>{param.required ? 'Yes' : 'No'}</TableCell>
-                              <TableCell>{param.description}</TableCell>
+              <ScrollArea className="h-[500px]">
+                <div className="space-y-6">
+                  {endpoints.map((endpoint, index) => (
+                    <div key={index} className="space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <span className={`px-2 py-1 rounded-md text-sm text-white font-semibold ${
+                          endpoint.method === 'GET' ? 'bg-blue-600' : 
+                          endpoint.method === 'POST' ? 'bg-green-600' : 
+                          endpoint.method === 'PUT' ? 'bg-orange-600' : 
+                          endpoint.method === 'DELETE' ? 'bg-red-600' : ''
+                        }`}>
+                          {endpoint.method}
+                        </span>
+                        <code className="text-sm">{endpoint.path}</code>
+                      </div>
+                      <p className="text-sm text-muted-foreground">{endpoint.description}</p>
+                      
+                      <div className="pt-2">
+                        <h4 className="text-sm font-semibold mb-2">Parameters</h4>
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Name</TableHead>
+                              <TableHead>Type</TableHead>
+                              <TableHead>Required</TableHead>
+                              <TableHead>Description</TableHead>
                             </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
+                          </TableHeader>
+                          <TableBody>
+                            {endpoint.parameters.map((param, paramIndex) => (
+                              <TableRow key={paramIndex}>
+                                <TableCell className="font-medium">{param.name}</TableCell>
+                                <TableCell>{param.type}</TableCell>
+                                <TableCell>{param.required ? 'Yes' : 'No'}</TableCell>
+                                <TableCell>{param.description}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              </ScrollArea>
             </CardContent>
           </Card>
         </TabsContent>
@@ -267,14 +269,10 @@ export const ApiDocumentation = () => {
                   </Button>
                 </div>
                 
-                <div className="w-full rounded-md overflow-hidden">
-                  <CopyBlock
-                    text={codeSnippets[language]}
-                    language={language === 'curl' ? 'bash' : language}
-                    showLineNumbers
-                    theme={dracula}
-                    wrapLines
-                  />
+                <div className="w-full overflow-hidden bg-muted p-4 rounded-md">
+                  <pre className="text-sm">
+                    <code>{codeSnippets[language]}</code>
+                  </pre>
                 </div>
               </div>
             </CardContent>
@@ -284,3 +282,5 @@ export const ApiDocumentation = () => {
     </div>
   );
 };
+
+export default ApiDocumentation;
