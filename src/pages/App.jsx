@@ -12,9 +12,12 @@ import { PaymentDialog } from '../components/PaymentDialog';
 import QRCode from 'qrcode.react';
 import NewShareForm from '../components/NewShareForm';
 import PreviousLinks from '../components/PreviousLinks';
+import UserProfile from '../components/UserProfile';
+import { useAuth } from '../contexts/AuthContext';
 
 const App = () => {
   const navigate = useNavigate();
+  const { currentUser } = useAuth();
   const { credits, freeSharesLeft, updateCredits } = useCredits();
   const [shareType, setShareType] = useState("card");
   const [cardCount, setCardCount] = useState(1);
@@ -55,6 +58,8 @@ const App = () => {
   return (
     <div className="bg-background text-foreground min-h-screen p-8">
       <div className="max-w-2xl mx-auto">
+        <UserProfile />
+        
         <Card>
           <CardHeader>
             <div className="flex justify-between items-center">
