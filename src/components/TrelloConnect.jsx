@@ -14,9 +14,9 @@ const TrelloConnect = ({ onConnect }) => {
     setIsConnecting(true);
     setError(null);
     
-    // For the purposes of fixing the issue, let's create mock data instead of trying to connect to Trello
-    setTimeout(() => {
-      try {
+    try {
+      // For now, we're using mock data instead of an actual Trello API connection
+      setTimeout(() => {
         const mockTrelloData = {
           member: {
             id: "mock123",
@@ -51,20 +51,24 @@ const TrelloConnect = ({ onConnect }) => {
         };
 
         onConnect(mockTrelloData);
-        toast("Connected to Trello successfully!");
-      } catch (error) {
-        console.error('Error connecting to Trello:', error);
-        setError(error.message || "Failed to connect");
-        toast("Connection to Trello failed. Please try again.");
-      } finally {
+        toast.success("Connected to Trello successfully!");
         setIsConnecting(false);
-      }
-    }, 1000); // Simulate network delay
+      }, 1500); // Simulate network delay
+    } catch (error) {
+      console.error('Error connecting to Trello:', error);
+      setError(error.message || "Failed to connect");
+      toast.error("Connection to Trello failed. Please try again.");
+      setIsConnecting(false);
+    }
   };
 
   return (
-    <div>
-      <Button onClick={handleConnect} disabled={isConnecting}>
+    <div className="flex flex-col space-y-2">
+      <Button 
+        onClick={handleConnect} 
+        disabled={isConnecting}
+        className="w-full md:w-auto"
+      >
         {isConnecting ? (
           <>
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />

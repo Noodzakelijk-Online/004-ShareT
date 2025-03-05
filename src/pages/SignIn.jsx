@@ -8,33 +8,31 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from "@/components/ui/use-toast";
 import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 const SignIn = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { signIn } = useAuth();
-  const { toast } = useToast();
+  const { toast: uiToast } = useToast();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!email || !password) {
-      toast({
-        title: "Missing information",
-        description: "Please fill in all fields",
-        variant: "destructive",
-      });
+      toast.error("Please fill in all fields");
       return;
     }
 
     setIsSubmitting(true);
     try {
       await signIn(email, password);
-      // Navigation is handled in the signIn function
+      // Navigation handled in the signIn function
+      toast.success("Signed in successfully");
     } catch (error) {
       console.error('Error signing in:', error);
-      // Error handling is done in the signIn function
+      toast.error(error.message || "Failed to sign in");
     } finally {
       setIsSubmitting(false);
     }
