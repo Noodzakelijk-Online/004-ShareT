@@ -33,16 +33,16 @@ const TrelloConnect = ({ onConnect }) => {
                   id: "list1",
                   name: "To Do",
                   cards: [
-                    { id: "card1", name: "Task 1" },
-                    { id: "card2", name: "Task 2" }
+                    { id: "card1", name: "Task 1", shortUrl: "https://trello.com/c/abc12345" },
+                    { id: "card2", name: "Task 2", shortUrl: "https://trello.com/c/def67890" }
                   ]
                 },
                 {
                   id: "list2",
                   name: "In Progress",
                   cards: [
-                    { id: "card3", name: "Task 3" },
-                    { id: "card4", name: "Task 4" }
+                    { id: "card3", name: "Task 3", shortUrl: "https://trello.com/c/ghi11223" },
+                    { id: "card4", name: "Task 4", shortUrl: "https://trello.com/c/jkl44556" }
                   ]
                 }
               ]

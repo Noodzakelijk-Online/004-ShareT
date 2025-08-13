@@ -13,7 +13,6 @@ const NewShareForm = ({ shareType, setShareType, cardCount, setCardCount, credit
   const { toast: uiToast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
   const [selectedList, setSelectedList] = useState(null);
-  const [generatedUrls, setGeneratedUrls] = useState(null);
   const [isSelectFromList, setIsSelectFromList] = useState(false);
   const [selectedCard, setSelectedCard] = useState(null);
   const [cardUrl, setCardUrl] = useState('');
@@ -36,6 +35,15 @@ const NewShareForm = ({ shareType, setShareType, cardCount, setCardCount, credit
       return;
     }
 
+    if (shareType === 'card' && !selectedCard && !cardUrl) {
+      uiToast({
+        title: "No card selected",
+        description: "Please select a card or enter a card URL.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Validate expiry date
     if (expiryDate && new Date(expiryDate) <= new Date()) {
       uiToast({
@@ -46,17 +54,28 @@ const NewShareForm = ({ shareType, setShareType, cardCount, setCardCount, credit
       return;
     }
 
-    // Simulate generating URLs
     if (shareType === "card") {
-      const cardUrl = `https://example.com/share/card/${Date.now()}`;
-      setGeneratedUrls({ cardUrl });
+      const newLink = {
+        id: selectedCard ? selectedCard.id : Date.now(),
+        name: selectedCard ? selectedCard.name : cardUrl,
+        url: selectedCard ? selectedCard.shortUrl : cardUrl,
+        expiry: expiryDate,
+        password: password,
+        type: 'card'
+      };
+      const storedLinks = JSON.parse(localStorage.getItem('previousLinks') || '[]');
+      localStorage.setItem('previousLinks', JSON.stringify([...storedLinks, newLink]));
     } else if (shareType === "list" && selectedList) {
-      const listUrl = `https://example.com/share/list/${selectedList.id}`;
-      const cardUrls = selectedList.cards.map(card => ({
+      const newLinks = selectedList.cards.map(card => ({
+        id: card.id,
         name: card.name,
-        url: `https://example.com/share/card/${card.id}`
+        url: card.shortUrl,
+        expiry: expiryDate,
+        password: password,
+        type: 'card'
       }));
-      setGeneratedUrls({ listUrl, cardUrls });
+      const storedLinks = JSON.parse(localStorage.getItem('previousLinks') || '[]');
+      localStorage.setItem('previousLinks', JSON.stringify([...storedLinks, ...newLinks]));
     }
 
     // Update credits
@@ -189,104 +208,6 @@ const NewShareForm = ({ shareType, setShareType, cardCount, setCardCount, credit
       <Button className="w-full" onClick={handleCreateShare}>
         <Share className="mr-2 h-4 w-4" /> Create Share Link
       </Button>
-      {generatedUrls && (
-        <div className="mt-4 space-y-2">
-          <h3 className="font-semibold">Generated Share Links:</h3>
-          {generatedUrls.cardUrl && (
-            <div className="flex items-center justify-between">
-              <span className="truncate">{generatedUrls.cardUrl}</span>
-              <div className="flex space-x-2">
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button variant="outline" size="sm" onClick={() => navigator.clipboard.writeText(generatedUrls.cardUrl)}>
-                        <Copy className="h-4 w-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Copy link</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button variant="outline" size="sm" onClick={() => onShowQRCode(generatedUrls.cardUrl)}>
-                        <QrCode className="h-4 w-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Show QR Code</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
-            </div>
-          )}
-          {generatedUrls.listUrl && (
-            <div className="flex items-center justify-between">
-              <span className="truncate">List URL: {generatedUrls.listUrl}</span>
-              <div className="flex space-x-2">
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button variant="outline" size="sm" onClick={() => navigator.clipboard.writeText(generatedUrls.listUrl)}>
-                        <Copy className="h-4 w-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Copy link</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button variant="outline" size="sm" onClick={() => onShowQRCode(generatedUrls.listUrl)}>
-                        <QrCode className="h-4 w-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Show QR Code</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
-            </div>
-          )}
-          {generatedUrls.cardUrls && generatedUrls.cardUrls.map((card, index) => (
-            <div key={index} className="flex items-center justify-between">
-              <span className="truncate">{card.name}: {card.url}</span>
-              <div className="flex space-x-2">
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button variant="outline" size="sm" onClick={() => navigator.clipboard.writeText(card.url)}>
-                        <Copy className="h-4 w-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Copy link</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button variant="outline" size="sm" onClick={() => onShowQRCode(card.url)}>
-                        <QrCode className="h-4 w-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Show QR Code</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 };
