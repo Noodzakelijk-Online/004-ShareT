@@ -11,11 +11,8 @@ import { toast } from "sonner";
 
 const NewShareForm = ({ shareType, setShareType, cardCount, setCardCount, credits, freeSharesLeft, updateCredits, onCreateLink, trelloData, onShowQRCode }) => {
   const { toast: uiToast } = useToast();
-  const [showPassword, setShowPassword] = useState(false);
   const [selectedList, setSelectedList] = useState(null);
   const [selectedCard, setSelectedCard] = useState(null);
-  const [expiryDate, setExpiryDate] = useState('');
-  const [password, setPassword] = useState('');
 
   const calculateCost = () => {
     if (freeSharesLeft > 0) return 0;
@@ -50,23 +47,11 @@ const NewShareForm = ({ shareType, setShareType, cardCount, setCardCount, credit
       return;
     }
 
-    // Validate expiry date
-    if (expiryDate && new Date(expiryDate) <= new Date()) {
-      uiToast({
-        title: "Invalid expiry date",
-        description: "Please select a future date for expiry.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     if (shareType === "card") {
       const newLink = {
         id: selectedCard.id,
         name: selectedCard.name,
         url: `/cards/${selectedCard.id}/comment`,
-        expiry: expiryDate,
-        password: password,
         type: 'card'
       };
       const storedLinks = JSON.parse(localStorage.getItem('previousLinks') || '[]');
@@ -76,8 +61,6 @@ const NewShareForm = ({ shareType, setShareType, cardCount, setCardCount, credit
         id: card.id,
         name: card.name,
         url: `/cards/${card.id}/comment`,
-        expiry: expiryDate,
-        password: password,
         type: 'card'
       }));
       const storedLinks = JSON.parse(localStorage.getItem('previousLinks') || '[]');
@@ -87,7 +70,18 @@ const NewShareForm = ({ shareType, setShareType, cardCount, setCardCount, credit
     // Update credits
     onCreateLink();
 
-    toast("Share link(s) created successfully");
+    if (shareType === "card") {
+      toast.success(`Link created for ${selectedCard.name}`, {
+        action: {
+          label: "Copy Link",
+          onClick: () => navigator.clipboard.writeText(`${window.location.origin}/cards/${selectedCard.id}/comment`),
+        },
+      });
+    } else if (shareType === "list") {
+      toast.success(`Links created for list: ${selectedList.name}`, {
+        description: "You can find them in the 'Previous Links' tab.",
+      });
+    }
   };
 
   return (
@@ -163,39 +157,7 @@ const NewShareForm = ({ shareType, setShareType, cardCount, setCardCount, credit
           </Select>
         </div>
       )}
-      <div className="flex space-x-4">
-        <div className="w-1/2">
-          <Label htmlFor="secret">Secret</Label>
-          <div className="flex items-center space-x-2">
-            <Input 
-              id="secret" 
-              type={showPassword ? "text" : "password"} 
-              placeholder="Optional password" 
-              className="h-10"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => setShowPassword(!showPassword)}
-            >
-              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            </Button>
-          </div>
-        </div>
-        <div className="w-1/2">
-          <Label htmlFor="expiryDate">Expiry Date</Label>
-          <Input 
-            id="expiryDate" 
-            type="date" 
-            className="h-10" 
-            value={expiryDate}
-            onChange={(e) => setExpiryDate(e.target.value)}
-          />
-        </div>
-      </div>
-      <Button className="w-full" onClick={handleCreateShare}>
+      <Button className="w-full mt-4" onClick={handleCreateShare}>
         <Share className="mr-2 h-4 w-4" /> Create Share Link
       </Button>
     </div>

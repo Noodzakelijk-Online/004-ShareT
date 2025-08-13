@@ -43,7 +43,7 @@ const PreviousLinks = ({ onShowQRCode }) => {
           <div key={link.id} className="flex justify-between items-center p-2 bg-secondary rounded-md">
             <div>
               <h3 className="font-semibold">{link.name}</h3>
-              <p className="text-sm text-muted-foreground">Expires: {link.expiry}</p>
+              <p className="text-sm text-muted-foreground truncate max-w-xs">{`${window.location.origin}${link.url}`}</p>
             </div>
             <div className="flex space-x-2">
               <TooltipProvider>

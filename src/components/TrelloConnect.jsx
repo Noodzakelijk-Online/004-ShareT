@@ -10,56 +10,36 @@ const TrelloConnect = ({ onConnect }) => {
   const [error, setError] = useState(null);
   const { toast: uiToast } = useToast();
 
-  const handleConnect = async () => {
+  const handleConnect = () => {
     setIsConnecting(true);
     setError(null);
-    
-    try {
-      // For now, we're using mock data instead of an actual Trello API connection
-      setTimeout(() => {
-        const mockTrelloData = {
-          member: {
-            id: "mock123",
-            fullName: "Demo User",
-            username: "demouser",
-            avatarUrl: "https://example.com/avatar.png"
-          },
-          boards: [
-            {
-              id: "board1",
-              name: "Project Board",
-              lists: [
-                {
-                  id: "list1",
-                  name: "To Do",
-                  cards: [
-                    { id: "card1", name: "Task 1", shortUrl: "https://trello.com/c/abc12345" },
-                    { id: "card2", name: "Task 2", shortUrl: "https://trello.com/c/def67890" }
-                  ]
-                },
-                {
-                  id: "list2",
-                  name: "In Progress",
-                  cards: [
-                    { id: "card3", name: "Task 3", shortUrl: "https://trello.com/c/ghi11223" },
-                    { id: "card4", name: "Task 4", shortUrl: "https://trello.com/c/jkl44556" }
-                  ]
-                }
-              ]
-            }
-          ]
-        };
 
-        onConnect(mockTrelloData);
-        toast.success("Connected to Trello successfully!");
+    const onFetchSuccess = (boards) => {
+      // Also fetch member data
+      window.Trello.get('/members/me', (member) => {
+        const trelloData = {
+          member: member,
+          boards: boards,
+        };
+        onConnect(trelloData);
+        toast.success("Connected to Trello and fetched data successfully!");
         setIsConnecting(false);
-      }, 1500); // Simulate network delay
-    } catch (error) {
-      console.error('Error connecting to Trello:', error);
-      setError(error.message || "Failed to connect");
-      toast.error("Connection to Trello failed. Please try again.");
+      }, onFetchFailure);
+    };
+
+    const onFetchFailure = (error) => {
+      console.error('Error fetching Trello data:', error);
+      setError("Failed to fetch data from Trello.");
+      toast.error("Failed to fetch data from Trello. Please try again.");
       setIsConnecting(false);
-    }
+    };
+
+    window.Trello.get(
+      '/members/me/boards',
+      { fields: 'name', lists: 'open', cards: 'open' },
+      onFetchSuccess,
+      onFetchFailure
+    );
   };
 
   return (
