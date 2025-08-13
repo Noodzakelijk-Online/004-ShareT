@@ -1,5 +1,5 @@
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import TrelloConnect from '../components/TrelloConnect';
 import { useNavigate } from 'react-router-dom';
@@ -25,10 +25,45 @@ const App = () => {
   const [cardCount, setCardCount] = useState(1);
   const [createdLinks, setCreatedLinks] = useState(0);
   const [trelloData, setTrelloData] = useState(null);
+  const [trelloAuthorized, setTrelloAuthorized] = useState(false);
   const [showQRCode, setShowQRCode] = useState(false);
   const [currentShareLink, setCurrentShareLink] = useState('');
   const [showApiDocs, setShowApiDocs] = useState(false);
   const { toast } = useToast();
+
+  useEffect(() => {
+    // Check if the user is already authorized with Trello
+    if (window.Trello) {
+      setTrelloAuthorized(window.Trello.authorized());
+    }
+  }, []);
+
+  const authorizeTrello = () => {
+    window.Trello.authorize({
+      type: 'popup',
+      name: 'External Share App',
+      scope: {
+        read: 'true',
+        write: 'true'
+      },
+      expiration: 'never',
+      success: () => {
+        setTrelloAuthorized(true);
+        toast({
+          title: "Trello Authorized",
+          description: "You have successfully authorized your Trello account.",
+        });
+      },
+      error: () => {
+        setTrelloAuthorized(false);
+        toast({
+          title: "Trello Authorization Failed",
+          description: "Failed to authorize your Trello account. Please try again.",
+          variant: "destructive",
+        });
+      }
+    });
+  };
 
   const cost = useMemo(() => {
     if (freeSharesLeft > 0) return 0;
@@ -83,7 +118,9 @@ const App = () => {
               </div>
             </div>
             <div className="flex justify-between items-center mt-2">
-              {!trelloData ? (
+              {!trelloAuthorized ? (
+                <Button onClick={authorizeTrello}>Authorize with Trello</Button>
+              ) : !trelloData ? (
                 <TrelloConnect onConnect={setTrelloData} />
               ) : (
                 <div className="flex items-center space-x-2">

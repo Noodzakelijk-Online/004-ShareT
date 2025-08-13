@@ -13,9 +13,7 @@ const NewShareForm = ({ shareType, setShareType, cardCount, setCardCount, credit
   const { toast: uiToast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
   const [selectedList, setSelectedList] = useState(null);
-  const [isSelectFromList, setIsSelectFromList] = useState(false);
   const [selectedCard, setSelectedCard] = useState(null);
-  const [cardUrl, setCardUrl] = useState('');
   const [expiryDate, setExpiryDate] = useState('');
   const [password, setPassword] = useState('');
 
@@ -35,10 +33,18 @@ const NewShareForm = ({ shareType, setShareType, cardCount, setCardCount, credit
       return;
     }
 
-    if (shareType === 'card' && !selectedCard && !cardUrl) {
+    if (shareType === 'card' && !selectedCard) {
       uiToast({
         title: "No card selected",
-        description: "Please select a card or enter a card URL.",
+        description: "Please select a card from the list.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (shareType === 'list' && !selectedList) {
+      uiToast({
+        title: "No list selected",
+        description: "Please select a list.",
         variant: "destructive",
       });
       return;
@@ -56,9 +62,9 @@ const NewShareForm = ({ shareType, setShareType, cardCount, setCardCount, credit
 
     if (shareType === "card") {
       const newLink = {
-        id: selectedCard ? selectedCard.id : Date.now(),
-        name: selectedCard ? selectedCard.name : cardUrl,
-        url: selectedCard ? selectedCard.shortUrl : cardUrl,
+        id: selectedCard.id,
+        name: selectedCard.name,
+        url: `/cards/${selectedCard.id}/comment`,
         expiry: expiryDate,
         password: password,
         type: 'card'
@@ -69,7 +75,7 @@ const NewShareForm = ({ shareType, setShareType, cardCount, setCardCount, credit
       const newLinks = selectedList.cards.map(card => ({
         id: card.id,
         name: card.name,
-        url: card.shortUrl,
+        url: `/cards/${card.id}/comment`,
         expiry: expiryDate,
         password: password,
         type: 'card'
@@ -101,49 +107,33 @@ const NewShareForm = ({ shareType, setShareType, cardCount, setCardCount, credit
             </Select>
           </div>
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <Label htmlFor="name">Name*</Label>
-              <div className="flex items-center space-x-2">
-                <Label htmlFor="nameToggle" className="text-sm">Select from list</Label>
-                <Switch id="nameToggle" onCheckedChange={setIsSelectFromList} />
-              </div>
-            </div>
-            {isSelectFromList ? (
-              <Select onValueChange={(cardId) => setSelectedCard(trelloData ? trelloData.boards.flatMap(b => b.lists).flatMap(l => l.cards).find(c => c.id === cardId) : null)}>
-                <SelectTrigger className="h-10">
-                  <SelectValue placeholder="Select a card" />
-                </SelectTrigger>
-                <SelectContent>
-                  {trelloData ? (
-                    trelloData.boards.map((board) => (
-                      <SelectGroup key={board.id}>
-                        <SelectLabel>{board.name}</SelectLabel>
-                        {board.lists.map((list) => (
-                          <SelectGroup key={list.id}>
-                            <SelectLabel className="pl-4">{list.name}</SelectLabel>
-                            {list.cards.map((card) => (
-                              <SelectItem key={card.id} value={card.id} className="pl-8">
-                                {card.name}
-                              </SelectItem>
-                            ))}
-                          </SelectGroup>
-                        ))}
-                      </SelectGroup>
-                    ))
-                  ) : (
-                    <SelectItem value="connect">Connect to Trello to see cards</SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
-            ) : (
-              <Input 
-                id="name" 
-                placeholder="Enter card URL" 
-                value={cardUrl}
-                onChange={(e) => setCardUrl(e.target.value)}
-                className="h-10"
-              />
-            )}
+            <Label htmlFor="name">Name*</Label>
+            <Select onValueChange={(cardId) => setSelectedCard(trelloData ? trelloData.boards.flatMap(b => b.lists).flatMap(l => l.cards).find(c => c.id === cardId) : null)}>
+              <SelectTrigger className="h-10">
+                <SelectValue placeholder="Select a card" />
+              </SelectTrigger>
+              <SelectContent>
+                {trelloData ? (
+                  trelloData.boards.map((board) => (
+                    <SelectGroup key={board.id}>
+                      <SelectLabel>{board.name}</SelectLabel>
+                      {board.lists.map((list) => (
+                        <SelectGroup key={list.id}>
+                          <SelectLabel className="pl-4">{list.name}</SelectLabel>
+                          {list.cards.map((card) => (
+                            <SelectItem key={card.id} value={card.id} className="pl-8">
+                              {card.name}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      ))}
+                    </SelectGroup>
+                  ))
+                ) : (
+                  <SelectItem value="connect">Connect to Trello to see cards</SelectItem>
+                )}
+              </SelectContent>
+            </Select>
           </div>
         </div>
       </div>

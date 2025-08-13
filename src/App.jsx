@@ -7,6 +7,7 @@ import Index from "./pages/Index";
 import App from "./pages/App";
 import SignIn from "./pages/SignIn";
 import SignUp from "./pages/SignUp";
+import PublicComment from "./pages/PublicComment";
 import { AuthProvider } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -30,6 +31,7 @@ const AppWrapper = () => (
                 </ProtectedRoute>
               } 
             />
+            <Route path="/cards/:cardId/comment" element={<PublicComment />} />
           </Routes>
         </AuthProvider>
       </BrowserRouter>
