@@ -19,7 +19,7 @@ import ApiDocumentation from '../components/ApiDocumentation';
 
 const App = () => {
   const navigate = useNavigate();
-  const { currentUser } = useAuth();
+  useAuth();
   const { credits, freeSharesLeft, updateCredits } = useCredits();
   const [shareType, setShareType] = useState("card");
   const [cardCount, setCardCount] = useState(1);

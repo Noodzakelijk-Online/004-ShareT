@@ -87,6 +87,7 @@ export const AuthProvider = ({ children }) => {
       }
       
       // Remove passwordHash from the current user
+      // eslint-disable-next-line no-unused-vars
       const { passwordHash, ...userWithoutPassword } = userData;
       
       // Set the current user

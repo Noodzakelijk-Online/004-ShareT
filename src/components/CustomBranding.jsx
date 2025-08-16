@@ -5,7 +5,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ColorPicker } from './ColorPicker';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
@@ -436,7 +435,7 @@ export const CustomBranding = () => {
                   <Label htmlFor="use-custom-font" className="flex flex-col space-y-1">
                     <span>Use Custom Font</span>
                     <span className="font-normal text-sm text-muted-foreground">
-                      Use your brand's custom font (Pro feature)
+                      Use your brand&apos;s custom font (Pro feature)
                     </span>
                   </Label>
                   <Switch 

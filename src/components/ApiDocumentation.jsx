@@ -160,7 +160,7 @@ const ApiDocumentation = () => {
               <h3 className="text-lg font-semibold mt-4">Rate Limits</h3>
               <p>
                 The API has a rate limit of 100 requests per minute per API key. If you exceed this limit, 
-                you'll receive a 429 Too Many Requests response.
+                you&apos;ll receive a 429 Too Many Requests response.
               </p>
             </CardContent>
           </Card>

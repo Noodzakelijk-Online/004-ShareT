@@ -1,15 +1,12 @@
 import { useState } from 'react';
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Share, Copy, Eye, EyeOff, QrCode } from "lucide-react";
+import { Share } from "lucide-react";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/use-toast";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 
-const NewShareForm = ({ shareType, setShareType, cardCount, setCardCount, credits, freeSharesLeft, updateCredits, onCreateLink, trelloData, onShowQRCode }) => {
+const NewShareForm = ({ shareType, setShareType, cardCount, credits, freeSharesLeft, onCreateLink, trelloData }) => {
   const { toast: uiToast } = useToast();
   const [selectedList, setSelectedList] = useState(null);
   const [selectedCard, setSelectedCard] = useState(null);

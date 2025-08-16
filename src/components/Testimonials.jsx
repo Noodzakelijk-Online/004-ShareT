@@ -1,5 +1,4 @@
 
-import { useState, useEffect } from "react";
 import { Carousel, CarouselContent, CarouselItem, CarouselPrevious, CarouselNext } from "@/components/ui/carousel";
 
 const testimonials = [
@@ -58,7 +57,7 @@ const Testimonials = () => {
                       <p className="text-sm text-gray-400">{testimonial.role}, {testimonial.company}</p>
                     </div>
                   </div>
-                  <p className="text-gray-300 italic">"{testimonial.quote}"</p>
+                  <p className="text-gray-300 italic">&quot;{testimonial.quote}&quot;</p>
                 </div>
               </CarouselItem>
             ))}

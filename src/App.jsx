@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
+import ErrorBoundary from "./components/ErrorBoundary";
 
 const Index = lazy(() => import("./pages/Index"));
 const App = lazy(() => import("./pages/App"));
@@ -35,14 +36,15 @@ const AppWrapper = () => {
   }, []);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-      <BrowserRouter>
-        <AuthProvider>
-          <Suspense fallback={<div className="flex justify-center items-center h-screen"><div>Loading...</div></div>}>
-            <Routes>
-              <Route path="/" element={<Index />} />
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <Toaster />
+        <BrowserRouter>
+          <AuthProvider>
+            <Suspense fallback={<div className="flex justify-center items-center h-screen"><div>Loading...</div></div>}>
+              <Routes>
+                <Route path="/" element={<Index />} />
               <Route path="/signin" element={<SignIn />} />
               <Route path="/signup" element={<SignUp />} />
               <Route
@@ -60,6 +62,7 @@ const AppWrapper = () => {
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
+    </ErrorBoundary>
   );
 };
 

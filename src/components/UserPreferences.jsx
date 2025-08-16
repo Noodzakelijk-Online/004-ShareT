@@ -1,11 +1,10 @@
 
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { Save, Lock, Bell, FileText, UserCircle } from 'lucide-react';
@@ -44,7 +43,7 @@ export const UserPreferences = () => {
   useEffect(() => {
     // In a real app, this would fetch from an API or local storage
     setInitialPreferences({ ...preferences });
-  }, []);
+  }, [preferences]);
   
   const hasChanges = JSON.stringify(preferences) !== JSON.stringify(initialPreferences);
   
@@ -385,7 +384,7 @@ export const UserPreferences = () => {
                 <Label htmlFor="session-timeout" className="flex flex-col space-y-1">
                   <span>Session Timeout (minutes)</span>
                   <span className="font-normal text-sm text-muted-foreground">
-                    How long before you're automatically signed out
+                    How long before you&apos;re automatically signed out
                   </span>
                 </Label>
                 <Select 

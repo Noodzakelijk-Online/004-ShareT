@@ -1,12 +1,11 @@
 
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { useAuth } from '../contexts/AuthContext';
-import { useToast } from "@/components/ui/use-toast";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -15,8 +14,6 @@ const SignIn = () => {
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { signIn } = useAuth();
-  const { toast: uiToast } = useToast();
-  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -88,7 +85,7 @@ const SignIn = () => {
         </CardContent>
         <CardFooter className="flex justify-center">
           <p className="text-sm text-center text-muted-foreground">
-            Don't have an account?{" "}
+            Don&apos;t have an account?{" "}
             <Link to="/signup" className="text-primary hover:underline">
               Sign Up
             </Link>

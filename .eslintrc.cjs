@@ -15,4 +15,15 @@ module.exports = {
     "react/jsx-no-target-blank": "off",
     "react/prop-types": "off",
   },
+  overrides: [
+    {
+      files: ["*.js", "*.cjs"],
+      env: {
+        node: true,
+      },
+      rules: {
+        "no-undef": "off",
+      }
+    },
+  ],
 };

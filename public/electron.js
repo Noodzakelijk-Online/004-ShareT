@@ -1,6 +1,32 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const url = require('url');
+const fs = require('fs');
+
+// Create a write stream for the log file
+const logFile = path.join(app.getPath('userData'), 'error.log');
+const logStream = fs.createWriteStream(logFile, { flags: 'a' });
+
+// Redirect console output to log file and to the original console
+const log = (level, message) => {
+  const timestamp = new Date().toISOString();
+  const formattedMessage = `[${timestamp}] [${level.toUpperCase()}] ${message}\n`;
+  logStream.write(formattedMessage);
+  process.stdout.write(formattedMessage);
+};
+
+console.log = (...args) => log('info', ...args);
+console.error = (...args) => log('error', ...args);
+console.warn = (...args) => log('warn', ...args);
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (error, origin) => {
+  log('fatal', `Caught exception: ${error}\n` + `Exception origin: ${origin}`);
+  log('fatal', error.stack);
+  app.quit();
+});
+
+log('info', 'Application starting...');
 
 function createWindow() {
   // Create the browser window.
@@ -8,9 +34,20 @@ function createWindow() {
     width: 800,
     height: 600,
     webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false,
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
     },
+  });
+
+  ipcMain.on('log-error', (event, error) => {
+    log('error', '--- Renderer Process Error ---');
+    log('error', `Message: ${error.message}`);
+    log('error', `Stack: ${error.stack}`);
+    if (error.componentStack) {
+      log('error', `Component Stack: ${error.componentStack}`);
+    }
+    log('error', '--------------------------');
   });
 
   // Load the index.html of the app.

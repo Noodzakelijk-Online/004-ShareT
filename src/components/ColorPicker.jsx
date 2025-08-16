@@ -11,7 +11,7 @@ export const ColorPicker = ({ value, onChange }) => {
     if (value !== color) {
       setColor(value);
     }
-  }, [value]);
+  }, [value, color]);
   
   const handleChange = (e) => {
     const newColor = e.target.value;

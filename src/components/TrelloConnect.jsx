@@ -1,14 +1,12 @@
 
 import { useState } from 'react';
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/components/ui/use-toast";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 const TrelloConnect = ({ onConnect }) => {
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState(null);
-  const { toast: uiToast } = useToast();
 
   const handleConnect = () => {
     setIsConnecting(true);
