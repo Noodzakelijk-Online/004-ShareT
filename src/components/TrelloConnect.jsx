@@ -34,7 +34,7 @@ const TrelloConnect = ({ onConnect }) => {
 
     window.Trello.get(
       '/members/me/boards',
-      { fields: 'name', lists: 'open', cards: 'open' },
+      { fields: 'name' },
       onFetchSuccess,
       onFetchFailure
     );
