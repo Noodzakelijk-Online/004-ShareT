@@ -99,4 +99,8 @@ const SignIn = () => {
   );
 };
 
+<<<<<<< HEAD
 export default SignIn;
+=======
+export default SignIn;
+>>>>>>> da382d0 (forget added)
