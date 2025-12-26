@@ -1,7 +1,7 @@
-
 import { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from "sonner";
+import { auth as authAPI } from '../api';
 
 const AuthContext = createContext();
 
@@ -20,96 +20,172 @@ export const AuthProvider = ({ children }) => {
   
   // Check for existing session on load
   useEffect(() => {
-    const storedUser = localStorage.getItem('sharetUser');
-    if (storedUser) {
-      try {
-        setCurrentUser(JSON.parse(storedUser));
-      } catch (error) {
-        console.error('Failed to parse stored user data', error);
-        localStorage.removeItem('sharetUser');
+    const initAuth = async () => {
+      const token = localStorage.getItem('token');
+      if (token) {
+        try {
+          // Verify token and get current user from backend
+          const response = await authAPI.getCurrentUser();
+          if (response.success) {
+            // Backend returns { success: true, data: { user: {...} } }
+            const user = response.data.user || response.data;
+            setCurrentUser(user);
+            // Update localStorage with fresh user data
+            localStorage.setItem('sharetUser', JSON.stringify(user));
+          } else {
+            // Token is invalid, clear it
+            localStorage.removeItem('token');
+            localStorage.removeItem('sharetUser');
+          }
+        } catch (error) {
+          console.error('Failed to verify session', error);
+          // Clear invalid token
+          localStorage.removeItem('token');
+          localStorage.removeItem('sharetUser');
+        }
       }
-    }
-    setLoading(false);
+      setLoading(false);
+    };
+
+    initAuth();
   }, []);
 
-  // Sign up function
+  // Sign up function - now uses backend API
   const signUp = async (email, password, fullName) => {
     setLoading(true);
     try {
-      // In a real app, this would call an API endpoint
-      // For demo purposes, we'll simulate creating a user
-      if (localStorage.getItem(`user_${email}`)) {
-        throw new Error('User already exists with this email');
-      }
-      
-      const userData = {
-        id: `user_${Date.now()}`,
+      const response = await authAPI.register({
         email,
-        fullName,
-        createdAt: new Date().toISOString(),
-      };
-      
-      // Store in localStorage for demo purposes
-      localStorage.setItem(`user_${email}`, JSON.stringify({
-        ...userData,
-        passwordHash: btoa(password) // Not secure, just for demo
-      }));
-      
-      // Set the current user
-      setCurrentUser(userData);
-      localStorage.setItem('sharetUser', JSON.stringify(userData));
-      
-      toast.success("Account created successfully");
-      navigate('/app');
-      return userData;
+        password,
+        name: fullName
+      });
+
+      if (response.success) {
+        // Backend returns { success: true, data: { user: {...}, token: '...' } }
+        const { token, user } = response.data;
+        
+        // Store JWT token
+        localStorage.setItem('token', token);
+        
+        // Store user data
+        localStorage.setItem('sharetUser', JSON.stringify(user));
+        setCurrentUser(user);
+        
+        toast.success("Account created successfully");
+        navigate('/app');
+        return user;
+      } else {
+        throw new Error(response.error || 'Registration failed');
+      }
     } catch (error) {
-      toast.error(error.message || "Failed to create account");
+      const errorMessage = error.message || "Failed to create account";
+      toast.error(errorMessage);
       throw error;
     } finally {
       setLoading(false);
     }
   };
 
-  // Sign in function
+  // Sign in function - now uses backend API
   const signIn = async (email, password) => {
     setLoading(true);
     try {
-      // In a real app, this would call an API endpoint
-      const storedUser = localStorage.getItem(`user_${email}`);
-      if (!storedUser) {
-        throw new Error('No user found with this email');
+      const response = await authAPI.login({
+        email,
+        password
+      });
+
+      if (response.success) {
+        // Backend returns { success: true, data: { user: {...}, token: '...' } }
+        const { token, user } = response.data;
+        
+        // Store JWT token
+        localStorage.setItem('token', token);
+        
+        // Store user data
+        localStorage.setItem('sharetUser', JSON.stringify(user));
+        setCurrentUser(user);
+        
+        toast.success("Signed in successfully");
+        navigate('/app');
+        return user;
+      } else {
+        throw new Error(response.error || 'Login failed');
       }
-      
-      const userData = JSON.parse(storedUser);
-      // Check password (not secure, just for demo)
-      if (btoa(password) !== userData.passwordHash) {
-        throw new Error('Invalid password');
-      }
-      
-      // Remove passwordHash from the current user
-      const { passwordHash, ...userWithoutPassword } = userData;
-      
-      // Set the current user
-      setCurrentUser(userWithoutPassword);
-      localStorage.setItem('sharetUser', JSON.stringify(userWithoutPassword));
-      
-      toast.success("Signed in successfully");
-      navigate('/app');
-      return userWithoutPassword;
     } catch (error) {
-      toast.error(error.message || "Failed to sign in");
+      const errorMessage = error.message || "Failed to sign in";
+      toast.error(errorMessage);
       throw error;
     } finally {
       setLoading(false);
     }
   };
 
-  // Sign out function
-  const signOut = () => {
-    localStorage.removeItem('sharetUser');
-    setCurrentUser(null);
-    toast.success("Signed out successfully");
-    navigate('/');
+  // Sign out function - now calls backend API
+  const signOut = async () => {
+    try {
+      // Call backend logout endpoint
+      await authAPI.logout();
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Continue with local logout even if API call fails
+    } finally {
+      // Clear local storage
+      localStorage.removeItem('token');
+      localStorage.removeItem('sharetUser');
+      setCurrentUser(null);
+      toast.success("Signed out successfully");
+      navigate('/');
+    }
+  };
+
+  // Update user profile
+  const updateProfile = async (profileData) => {
+    setLoading(true);
+    try {
+      const response = await authAPI.updateProfile(profileData);
+      
+      if (response.success) {
+        // Backend returns { success: true, data: { user: {...} } }
+        const updatedUser = response.data.user || response.data;
+        setCurrentUser(updatedUser);
+        localStorage.setItem('sharetUser', JSON.stringify(updatedUser));
+        toast.success("Profile updated successfully");
+        return updatedUser;
+      } else {
+        throw new Error(response.error || 'Profile update failed');
+      }
+    } catch (error) {
+      const errorMessage = error.message || "Failed to update profile";
+      toast.error(errorMessage);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Change password
+  const changePassword = async (currentPassword, newPassword) => {
+    setLoading(true);
+    try {
+      const response = await authAPI.changePassword({
+        currentPassword,
+        newPassword
+      });
+      
+      if (response.success) {
+        toast.success("Password changed successfully");
+        return true;
+      } else {
+        throw new Error(response.error || 'Password change failed');
+      }
+    } catch (error) {
+      const errorMessage = error.message || "Failed to change password";
+      toast.error(errorMessage);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
   };
 
   const value = {
@@ -118,7 +194,10 @@ export const AuthProvider = ({ children }) => {
     signUp,
     signIn,
     signOut,
+    updateProfile,
+    changePassword,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
+
