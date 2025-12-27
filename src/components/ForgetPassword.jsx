@@ -12,31 +12,29 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
-import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
+import { toast } from "sonner";
 
-const SignIn = () => {
+const ForgotPassword = () => {
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { signIn } = useAuth();
+  const { resetPassword } = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!email || !password) {
-      toast.error("Please fill in all fields");
+    if (!email) {
+      toast.error("Please enter your email address");
       return;
     }
 
     setIsSubmitting(true);
     try {
-      await signIn(email, password);
-      toast.success("Signed in successfully");
-      // navigation handled inside signIn()
+      await resetPassword(email);
+      toast.success("Password reset link sent to your email");
     } catch (error) {
-      console.error("Error signing in:", error);
-      toast.error(error.message || "Failed to sign in");
+      console.error("Error resetting password:", error);
+      toast.error(error.message || "Failed to send reset email");
     } finally {
       setIsSubmitting(false);
     }
@@ -47,10 +45,10 @@ const SignIn = () => {
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle className="text-2xl font-bold text-center">
-            Sign In to ShareT
+            Forgot Password
           </CardTitle>
           <CardDescription className="text-center">
-            Enter your credentials to access your account
+            Enter your email and we’ll send you a reset link
           </CardDescription>
         </CardHeader>
 
@@ -68,34 +66,14 @@ const SignIn = () => {
               />
             </div>
 
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password">Password</Label>
-                <Link
-                  to="/forgetpassword"
-                  className="text-sm text-primary hover:underline"
-                >
-                  Forgot password?
-                </Link>
-              </div>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
-
             <Button type="submit" className="w-full" disabled={isSubmitting}>
               {isSubmitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Signing In...
+                  Sending link...
                 </>
               ) : (
-                "Sign In"
+                "Send Reset Link"
               )}
             </Button>
           </form>
@@ -103,9 +81,9 @@ const SignIn = () => {
 
         <CardFooter className="flex justify-center">
           <p className="text-sm text-muted-foreground">
-            Don&apos;t have an account?{" "}
-            <Link to="/signup" className="text-primary hover:underline">
-              Sign Up
+            Remembered your password?{" "}
+            <Link to="/signin" className="text-primary hover:underline">
+              Sign In
             </Link>
           </p>
         </CardFooter>
@@ -114,4 +92,4 @@ const SignIn = () => {
   );
 };
 
-export default SignIn;
+export default ForgotPassword;

@@ -1,74 +1,85 @@
-
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/components/ui/use-toast";
 import { Loader2 } from "lucide-react";
+import axios from "axios";
 import { toast } from "sonner";
 
 const TrelloConnect = ({ onConnect }) => {
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState(null);
-  const { toast: uiToast } = useToast();
+  const [trelloConnections, setTrelloConnections] = useState([]);
+
+  const API_URL =
+    import.meta.env.VITE_API_URL || "http://localhost:5001/api";
+  const token = localStorage.getItem("token");
+
+  const fetchTrelloConnections = useCallback(async () => {
+    if (!token) return;
+
+    try {
+      const response = await axios.get(
+        `${API_URL}/trello/connections`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const connections = response.data?.connections || [];
+      setTrelloConnections(connections);
+
+      // ✅ AUTO-SELECT FIRST CONNECTION
+      if (connections.length === 1) {
+        onConnect(connections[0]);
+      }
+    } catch (err) {
+      console.error("Error fetching Trello connections:", err);
+    }
+  }, [API_URL, token, onConnect]);
+
+  useEffect(() => {
+    fetchTrelloConnections();
+  }, [fetchTrelloConnections]);
 
   const handleConnect = async () => {
     setIsConnecting(true);
     setError(null);
-    
-    try {
-      // For now, we're using mock data instead of an actual Trello API connection
-      setTimeout(() => {
-        const mockTrelloData = {
-          member: {
-            id: "mock123",
-            fullName: "Demo User",
-            username: "demouser",
-            avatarUrl: "https://example.com/avatar.png"
-          },
-          boards: [
-            {
-              id: "board1",
-              name: "Project Board",
-              lists: [
-                {
-                  id: "list1",
-                  name: "To Do",
-                  cards: [
-                    { id: "card1", name: "Task 1" },
-                    { id: "card2", name: "Task 2" }
-                  ]
-                },
-                {
-                  id: "list2",
-                  name: "In Progress",
-                  cards: [
-                    { id: "card3", name: "Task 3" },
-                    { id: "card4", name: "Task 4" }
-                  ]
-                }
-              ]
-            }
-          ]
-        };
 
-        onConnect(mockTrelloData);
-        toast.success("Connected to Trello successfully!");
-        setIsConnecting(false);
-      }, 1500); // Simulate network delay
-    } catch (error) {
-      console.error('Error connecting to Trello:', error);
-      setError(error.message || "Failed to connect");
-      toast.error("Connection to Trello failed. Please try again.");
+    try {
+      const response = await axios.get(`${API_URL}/trello/auth`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.data?.authUrl) {
+        throw new Error("Failed to start Trello authentication");
+      }
+
+      const popup = window.open(
+        response.data.authUrl,
+        "TrelloAuth",
+        "width=600,height=600"
+      );
+
+      const timer = setInterval(() => {
+        if (!popup || popup.closed) {
+          clearInterval(timer);
+          fetchTrelloConnections();
+          setIsConnecting(false);
+        }
+      }, 500);
+    } catch (err) {
+      toast.error("Failed to connect to Trello");
+      setError(err.message);
       setIsConnecting(false);
     }
   };
 
   return (
-    <div className="flex flex-col space-y-2">
-      <Button 
-        onClick={handleConnect} 
-        disabled={isConnecting}
-        className="w-full md:w-auto"
-      >
+    <div className="space-y-4">
+      <Button onClick={handleConnect} disabled={isConnecting}>
         {isConnecting ? (
           <>
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -78,8 +89,35 @@ const TrelloConnect = ({ onConnect }) => {
           "Connect to Trello"
         )}
       </Button>
-      {error && (
-        <p className="text-sm text-destructive mt-2">{error}</p>
+
+      {error && <p className="text-sm text-destructive">{error}</p>}
+
+      {trelloConnections.length > 0 && (
+        <div className="space-y-2">
+          <h3 className="font-medium">Connected Trello Accounts</h3>
+          {trelloConnections.map((connection) => (
+            <div
+              key={connection.id}
+              className="flex justify-between items-center border p-3 rounded-md"
+            >
+              <div>
+                <p className="font-medium">
+                  {connection.trelloFullName || connection.trelloUsername}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  @{connection.trelloUsername}
+                </p>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => onConnect(connection)}
+              >
+                Select
+              </Button>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );

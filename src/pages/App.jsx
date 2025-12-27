@@ -14,12 +14,12 @@ import QRCode from 'qrcode.react';
 import NewShareForm from '../components/NewShareForm';
 import PreviousLinks from '../components/PreviousLinks';
 import UserProfile from '../components/UserProfile';
-import { useAuth } from '../contexts/AuthContext';
+// import { useAuth } from '../contexts/AuthContext';
 import ApiDocumentation from '../components/ApiDocumentation';
 
 const App = () => {
   const navigate = useNavigate();
-  const { currentUser } = useAuth();
+  // const { currentUser } = useAuth();
   const { credits, freeSharesLeft, updateCredits } = useCredits();
   const [shareType, setShareType] = useState("card");
   const [cardCount, setCardCount] = useState(1);
@@ -57,7 +57,7 @@ const App = () => {
       description: "You have been successfully disconnected from your Trello account.",
     });
   };
-
+console.log(JSON.stringify(trelloData, null, 2));
   return (
     <div className="bg-background text-foreground min-h-screen p-8">
       <div className="max-w-2xl mx-auto">
@@ -87,7 +87,7 @@ const App = () => {
                 <TrelloConnect onConnect={setTrelloData} />
               ) : (
                 <div className="flex items-center space-x-2">
-                  <span>Connected as {trelloData.member.fullName}</span>
+                  <span>Connected as {trelloData.member?.fullName}</span>
                   <Button variant="outline" size="sm" onClick={handleDisconnect}>
                     <LogOut className="mr-2 h-4 w-4" />
                     Disconnect
