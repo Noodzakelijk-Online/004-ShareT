@@ -22,3 +22,23 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Backend
+backend/node_modules/
+backend/data/
+backend/.env
+
+# Build output
+dist/
+backend/frontend/dist/
+
+# Logs
+*.log
+logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+config.bat
+temp_auto_push.bat
+temp_interactive_push.bat
