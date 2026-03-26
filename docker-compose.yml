@@ -5,6 +5,8 @@ services:
     build: .
     container_name: sharet-app
     restart: always
+    env_file:
+      - .env.docker
     ports:
       - "5005:5005"
     volumes:
