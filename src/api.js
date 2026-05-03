@@ -32,7 +32,7 @@ async function apiRequest(endpoint, options = {}) {
     const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(data.error || 'API request failed');
+      throw new Error(data.message || data.error || `Request failed with status ${response.status}`);
     }
 
     return data;
@@ -60,7 +60,7 @@ async function apiUpload(endpoint, formData) {
     });
     const data = await response.json();
     if (!response.ok) {
-      throw new Error(data.error || 'Upload failed');
+      throw new Error(data.message || data.error || `Upload failed with status ${response.status}`);
     }
     return data;
   } catch (error) {
