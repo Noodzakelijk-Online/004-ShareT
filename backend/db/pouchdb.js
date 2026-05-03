@@ -67,6 +67,11 @@ async function createIndexes() {
       index: { fields: ['userId', 'billingPeriod'] }
     });
     
+    // Password reset token index
+    await databases.users.createIndex({
+      index: { fields: ['passwordResetToken'] }
+    });
+    
     console.log('PouchDB indexes created successfully');
   } catch (err) {
     console.log('Index creation (may already exist):', err.message);
@@ -153,6 +158,18 @@ const User = {
     const user = await databases.users.get(id);
     await databases.users.remove(user);
     return true;
+  },
+
+  async findByResetToken(hashedToken) {
+    const result = await databases.users.find({
+      selector: { passwordResetToken: hashedToken }
+    });
+    const user = result.docs[0] || null;
+    if (!user) return null;
+    if (user.passwordResetExpires && new Date(user.passwordResetExpires) < new Date()) {
+      return null;
+    }
+    return user;
   }
 };
 

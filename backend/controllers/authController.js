@@ -6,7 +6,21 @@
 
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
+const nodemailer = require('nodemailer');
 const { User } = require('../db/pouchdb');
+
+function createMailTransporter() {
+  return nodemailer.createTransport({
+    host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+    port: parseInt(process.env.EMAIL_PORT || '587'),
+    secure: process.env.EMAIL_SECURE === 'true',
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASSWORD
+    }
+  });
+}
 
 // Generate JWT token
 const generateToken = (userId) => {
@@ -360,5 +374,84 @@ exports.refreshToken = async (req, res) => {
       success: false,
       message: 'Invalid refresh token'
     });
+  }
+};
+
+/**
+ * Forgot password - send reset email
+ * POST /api/auth/forgot-password
+ */
+exports.forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ success: false, message: 'Email is required' });
+    }
+
+    const user = await User.findByEmail(email);
+    if (!user) {
+      return res.json({ success: true, message: 'If that email exists, a reset link has been sent' });
+    }
+
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+
+    await User.updateById(user._id, {
+      passwordResetToken: hashedToken,
+      passwordResetExpires: new Date(Date.now() + 10 * 60 * 1000).toISOString()
+    });
+
+    const frontendUrl = process.env.FRONTEND_URL || process.env.PUBLIC_URL || 'http://localhost:5005';
+    const resetUrl = `${frontendUrl}/reset-password/${resetToken}`;
+
+    const transporter = createMailTransporter();
+    await transporter.sendMail({
+      from: process.env.EMAIL_FROM || 'ShareT <noreply@sharet.app>',
+      to: user.email,
+      subject: 'Password Reset Request - ShareT',
+      html: `<p>You requested a password reset.</p>
+             <p>Click the link below to reset your password (valid for 10 minutes):</p>
+             <a href="${resetUrl}">${resetUrl}</a>
+             <p>If you did not request this, ignore this email.</p>`
+    });
+
+    res.json({ success: true, message: 'If that email exists, a reset link has been sent' });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({ success: false, message: 'Error sending reset email', error: error.message });
+  }
+};
+
+/**
+ * Reset password with token
+ * POST /api/auth/reset-password/:token
+ */
+exports.resetPassword = async (req, res) => {
+  try {
+    const { token } = req.params;
+    const { password } = req.body;
+
+    if (!token || !password) {
+      return res.status(400).json({ success: false, message: 'Token and new password are required' });
+    }
+
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+    const user = await User.findByResetToken(hashedToken);
+
+    if (!user) {
+      return res.status(400).json({ success: false, message: 'Invalid or expired reset token' });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 12);
+    await User.updateById(user._id, {
+      password: hashedPassword,
+      passwordResetToken: null,
+      passwordResetExpires: null
+    });
+
+    res.json({ success: true, message: 'Password reset successfully' });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ success: false, message: 'Error resetting password', error: error.message });
   }
 };

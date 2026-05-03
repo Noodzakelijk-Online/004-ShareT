@@ -108,7 +108,7 @@ export const AuthProvider = ({ children }) => {
         navigate('/app');
         return user;
       } else {
-        throw new Error(response.error || 'Login failed');
+        throw new Error(response.message || response.error || 'Login failed');
       }
     } catch (error) {
       const errorMessage = error.message || "Failed to sign in";
@@ -144,14 +144,13 @@ export const AuthProvider = ({ children }) => {
       const response = await authAPI.updateProfile(profileData);
       
       if (response.success) {
-        // Backend returns { success: true, data: { user: {...} } }
-        const updatedUser = response.data.user || response.data;
+        const updatedUser = response.user || response.data?.user || response.data;
         setCurrentUser(updatedUser);
         localStorage.setItem('sharetUser', JSON.stringify(updatedUser));
         toast.success("Profile updated successfully");
         return updatedUser;
       } else {
-        throw new Error(response.error || 'Profile update failed');
+        throw new Error(response.message || response.error || 'Profile update failed');
       }
     } catch (error) {
       const errorMessage = error.message || "Failed to update profile";
@@ -159,6 +158,21 @@ export const AuthProvider = ({ children }) => {
       throw error;
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Reset password (forgot password flow)
+  const resetPassword = async (email) => {
+    try {
+      const response = await authAPI.forgotPassword(email);
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to send reset email');
+      }
+      return response;
+    } catch (error) {
+      const errorMessage = error.message || 'Failed to send reset email';
+      toast.error(errorMessage);
+      throw error;
     }
   };
 
@@ -194,6 +208,7 @@ export const AuthProvider = ({ children }) => {
     signOut,
     updateProfile,
     changePassword,
+    resetPassword,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
