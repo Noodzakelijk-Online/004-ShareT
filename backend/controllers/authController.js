@@ -401,7 +401,7 @@ exports.forgotPassword = async (req, res) => {
       passwordResetExpires: new Date(Date.now() + 10 * 60 * 1000).toISOString()
     });
 
-    const frontendUrl = process.env.FRONTEND_URL || process.env.PUBLIC_URL || 'http://localhost:5005';
+    const frontendUrl = process.env.PUBLIC_URL || process.env.FRONTEND_URL || 'http://localhost:5005';
     const resetUrl = `${frontendUrl}/reset-password/${resetToken}`;
 
     const transporter = createMailTransporter();

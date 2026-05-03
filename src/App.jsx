@@ -7,6 +7,7 @@ import App from "./pages/App";
 import SignIn from "./pages/SignIn";
 import SignUp from "./pages/SignUp";
 import ForgotPassword from "./components/ForgetPassword";
+import ResetPassword from "./pages/ResetPassword";
 import TrelloCallback from "./pages/TrelloCallback";
 import SharedLinkAccess from "./components/SharedLinkAccess";
 import SharedCardView from "./components/SharedCardView";
@@ -45,6 +46,7 @@ const AppWrapper = () => (
             <Route path="/signin" element={<SignIn />} />
             <Route path="/signup" element={<SignUp />} />
             <Route path="/forgetpassword" element={<ForgotPassword />} />
+            <Route path="/reset-password/:token" element={<ResetPassword />} />
             <Route path="/trello/callback" element={<TrelloCallback />} />
             <Route path="/shared/:shareId" element={<SharedPage />} />
             <Route path="/shared/:shareId/card" element={<SharedCardPage />} />
