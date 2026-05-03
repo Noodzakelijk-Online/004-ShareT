@@ -27,6 +27,12 @@ dist-ssr
 backend/node_modules/
 backend/data/
 backend/.env
+backend/.env.production
+
+# Environment files with secrets - never commit these
+.env.docker
+.env.local
+.env.*.local
 
 # Build output
 dist/

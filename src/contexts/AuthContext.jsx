@@ -61,8 +61,7 @@ export const AuthProvider = ({ children }) => {
       });
 
       if (response.success) {
-        // Backend returns { success: true, data: { user: {...}, token: '...' } }
-        const { token, user } = response.data;
+        const { token, user } = response;
         
         // Store JWT token
         localStorage.setItem('token', token);
@@ -75,7 +74,7 @@ export const AuthProvider = ({ children }) => {
         navigate('/app');
         return user;
       } else {
-        throw new Error(response.error || 'Registration failed');
+        throw new Error(response.message || response.error || 'Registration failed');
       }
     } catch (error) {
       const errorMessage = error.message || "Failed to create account";
@@ -96,8 +95,7 @@ export const AuthProvider = ({ children }) => {
       });
 
       if (response.success) {
-        // Backend returns { success: true, data: { user: {...}, token: '...' } }
-        const { token, user } = response.data;
+        const { token, user } = response;
         
         // Store JWT token
         localStorage.setItem('token', token);
