@@ -33,7 +33,8 @@ async function postJSON(url, data) {
 // Get Trello auth URL
 exports.getAuthUrl = async (req, res) => {
   try {
-    const callbackUrl = process.env.TRELLO_CALLBACK_URL || `http://localhost:${process.env.PORT || 5000}/api/trello/callback`;
+    const callbackUrl = process.env.TRELLO_CALLBACK_URL
+      || (process.env.PUBLIC_URL ? `${process.env.PUBLIC_URL.replace(/\/$/, '')}/api/trello/callback` : `http://localhost:${process.env.PORT || 5005}/api/trello/callback`);
     const authUrl = `https://trello.com/1/authorize?expiration=never&name=ShareT&scope=read,write,account&response_type=token&key=${process.env.TRELLO_API_KEY}&return_url=${encodeURIComponent(callbackUrl)}&callback_method=fragment`;
     
     res.json({
@@ -68,7 +69,7 @@ exports.handleCallback = async (req, res) => {
     }
     
     // Redirect to frontend
-    const frontendUrl = process.env.FRONTEND_URL || `http://localhost:${process.env.PORT || 5000}`;
+    const frontendUrl = process.env.FRONTEND_URL || process.env.PUBLIC_URL || `http://localhost:${process.env.PORT || 5005}`;
     res.redirect(`${frontendUrl}/trello-callback?token=${token}`);
   } catch (error) {
     console.error('Handle callback error:', error);

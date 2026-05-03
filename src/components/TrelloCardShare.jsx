@@ -21,7 +21,7 @@ const TrelloCardShare = ({ connectionId, cardId, boardId, cardName, boardName, o
   const [copied, setCopied] = useState(false);
   const { user } = useAuth();
   
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+  const API_URL = import.meta.env.VITE_API_URL || '/api';
   
   const handleGenerateLink = async () => {
     setIsGenerating(true);

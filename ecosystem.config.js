@@ -18,7 +18,7 @@ module.exports = {
     // Environment variables
     env: {
       NODE_ENV: 'production',
-      PORT: 5000
+      PORT: process.env.PORT || 5005
     },
     
     // Logging
@@ -45,7 +45,7 @@ module.exports = {
     // Health check
     health_check: {
       enable: true,
-      endpoint: 'http://localhost:5000/health',
+      endpoint: `http://localhost:${process.env.PORT || 5005}/health`,
       interval: 30000, // 30 seconds
       timeout: 5000
     }

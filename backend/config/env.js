@@ -10,7 +10,7 @@ const S = require('fluent-json-schema');
 const schema = S.object()
   // Server Configuration
   .prop('NODE_ENV', S.string().enum(['development', 'production', 'test']).default('development'))
-  .prop('PORT', S.number().default(5000))
+  .prop('PORT', S.number().default(5005))
   .prop('HOST', S.string().default('0.0.0.0'))
   
   // Database Configuration
@@ -23,11 +23,12 @@ const schema = S.object()
   // Trello API Configuration
   .prop('TRELLO_API_KEY', S.string().default(''))
   .prop('TRELLO_API_SECRET', S.string().default(''))
-  .prop('TRELLO_CALLBACK_URL', S.string().default('http://localhost:5000/api/trello/callback'))
+  .prop('TRELLO_CALLBACK_URL', S.string().default(''))
+  .prop('PUBLIC_URL', S.string().default(''))
   
   // CORS Configuration
-  .prop('CORS_ORIGIN', S.string().default('http://localhost:5000'))
-  .prop('FRONTEND_URL', S.string().default('http://localhost:5000'))
+  .prop('CORS_ORIGIN', S.string().default('http://localhost:5005'))
+  .prop('FRONTEND_URL', S.string().default('http://localhost:5005'))
   
   // Session Configuration
   .prop('SESSION_SECRET', S.string().default('your-session-secret-change-in-production'))

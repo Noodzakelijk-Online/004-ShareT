@@ -6,17 +6,16 @@
 (function() {
   'use strict';
 
-  // Get ShareT server URL from extension storage or use default
-  const DEFAULT_SHARET_URL = 'http://localhost:5005';
-  
+  // Get ShareT server URL from extension storage.
+  // No hardcoded fallback — admin must configure via the extension popup.
   function getShareTUrl() {
     return new Promise((resolve) => {
       if (chrome.storage && chrome.storage.sync) {
         chrome.storage.sync.get(['sharetUrl'], (result) => {
-          resolve(result.sharetUrl || DEFAULT_SHARET_URL);
+          resolve(result.sharetUrl || '');
         });
       } else {
-        resolve(DEFAULT_SHARET_URL);
+        resolve('');
       }
     });
   }
@@ -90,15 +89,20 @@
     document.getElementById('sharet-share-btn').addEventListener('click', async () => {
       const card = getCardData();
       const sharetUrl = await getShareTUrl();
-      
+
+      if (!sharetUrl) {
+        alert('ShareT server URL is not configured.\n\nClick the ShareT extension icon in your toolbar and enter your ShareT server URL (e.g. your Cloudflare tunnel URL).');
+        return;
+      }
+
       const params = new URLSearchParams({
         cardId: card.cardShortId,
         cardName: card.cardTitle,
         boardName: card.boardTitle,
         source: 'extension'
       });
-      
-      window.open(`${sharetUrl}/app?${params.toString()}`, '_blank');
+
+      window.open(`${sharetUrl.replace(/\/$/, '')}/app?${params.toString()}`, '_blank');
     });
     
     // Hover effect

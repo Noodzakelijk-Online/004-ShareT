@@ -3,7 +3,9 @@
  * Handles all API communication with the backend
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5005/api';
+// Use VITE_API_URL from env. Relative '/api' default works for any deployment
+// (Cloudflare tunnel, custom domain, localhost) since frontend is served from same origin as backend.
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
 /**
  * Helper function to make API requests

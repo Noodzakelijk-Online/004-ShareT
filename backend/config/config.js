@@ -7,7 +7,7 @@ require('dotenv').config();
 
 module.exports = {
   // Server Configuration
-  PORT: process.env.PORT || 5000,
+  PORT: process.env.PORT || 5005,
   NODE_ENV: process.env.NODE_ENV || 'development',
   
   // Database Configuration
@@ -23,12 +23,14 @@ module.exports = {
   SESSION_SECRET: process.env.SESSION_SECRET || 'sharet-session-secret-change-in-production',
   
   // Frontend Configuration
-  FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:5173',
+  FRONTEND_URL: process.env.FRONTEND_URL || process.env.PUBLIC_URL || 'http://localhost:5005',
+  PUBLIC_URL: process.env.PUBLIC_URL || '',
   
   // Trello API Configuration
   TRELLO_API_KEY: process.env.TRELLO_API_KEY,
   TRELLO_API_SECRET: process.env.TRELLO_API_SECRET,
-  TRELLO_CALLBACK_URL: process.env.TRELLO_CALLBACK_URL || 'http://localhost:5000/api/trello/callback',
+  TRELLO_CALLBACK_URL: process.env.TRELLO_CALLBACK_URL
+    || (process.env.PUBLIC_URL ? `${process.env.PUBLIC_URL.replace(/\/$/, '')}/api/trello/callback` : `http://localhost:${process.env.PORT || 5005}/api/trello/callback`),
   
   // GitHub API Configuration
   GITHUB_TOKEN: process.env.GITHUB_TOKEN,
@@ -76,10 +78,10 @@ module.exports = {
   LOG_FILE: process.env.LOG_FILE || 'logs/app.log',
   
   // CORS Configuration
-  CORS_ORIGIN: process.env.CORS_ORIGIN || 'http://localhost:5173',
+  CORS_ORIGIN: process.env.CORS_ORIGIN || process.env.PUBLIC_URL || 'http://localhost:5005',
   
   // Share Link Configuration
-  SHARE_LINK_BASE_URL: process.env.SHARE_LINK_BASE_URL || 'http://localhost:5173/shared',
+  SHARE_LINK_BASE_URL: process.env.SHARE_LINK_BASE_URL || process.env.PUBLIC_URL || 'http://localhost:5005',
   DEFAULT_SHARE_EXPIRATION: parseInt(process.env.DEFAULT_SHARE_EXPIRATION) || 0, // 0 = indefinite
 };
 

@@ -14,8 +14,10 @@
   // ShareT Power-Up - Native "Share" Button for Trello Cards
   // This Power-Up adds a "Share via ShareT" button to every Trello card.
   
-  // Configure with your ShareT deployment URL
-  const SHARET_BASE_URL = window.location.origin.replace(/\/power-up$/, '') || 'http://localhost:5005';
+  // The Power-Up is served from the ShareT backend itself, so the base URL
+  // is whatever origin Trello loads this iframe from. No hardcoding needed —
+  // works automatically with localhost, custom domain, or Cloudflare tunnel.
+  const SHARET_BASE_URL = window.location.origin;
   
   TrelloPowerUp.initialize({
     // Card buttons — shown on card back
