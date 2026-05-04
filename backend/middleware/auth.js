@@ -23,7 +23,7 @@ exports.protect = async (req, res, next) => {
     }
 
     // Verify token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'sharet-jwt-secret');
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'sharet-jwt-secret-change-in-production');
 
     // Get user from PouchDB
     const user = await User.findById(decoded.id);
@@ -54,7 +54,7 @@ exports.optionalAuth = async (req, res, next) => {
     }
 
     if (token) {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'sharet-jwt-secret');
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'sharet-jwt-secret-change-in-production');
       const user = await User.findById(decoded.id);
       if (user) {
         req.user = user;

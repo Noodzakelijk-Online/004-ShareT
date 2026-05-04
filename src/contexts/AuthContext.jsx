@@ -27,8 +27,7 @@ export const AuthProvider = ({ children }) => {
           // Verify token and get current user from backend
           const response = await authAPI.getCurrentUser();
           if (response.success) {
-            // Backend returns { success: true, data: { user: {...} } }
-            const user = response.data.user || response.data;
+            const user = response.user || response.data?.user || response.data;
             setCurrentUser(user);
             // Update localStorage with fresh user data
             localStorage.setItem('sharetUser', JSON.stringify(user));
@@ -189,7 +188,7 @@ export const AuthProvider = ({ children }) => {
         toast.success("Password changed successfully");
         return true;
       } else {
-        throw new Error(response.error || 'Password change failed');
+        throw new Error(response.message || response.error || 'Password change failed');
       }
     } catch (error) {
       const errorMessage = error.message || "Failed to change password";
