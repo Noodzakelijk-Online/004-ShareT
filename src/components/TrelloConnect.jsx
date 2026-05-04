@@ -48,9 +48,7 @@ const TrelloConnect = ({ onConnect }) => {
 
     try {
       const response = await axios.get(`${API_URL}/trello/auth-url`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       if (!response.data?.authUrl) {
@@ -60,12 +58,42 @@ const TrelloConnect = ({ onConnect }) => {
       const popup = window.open(
         response.data.authUrl,
         "TrelloAuth",
-        "width=600,height=600"
+        "width=600,height=700,left=200,top=100"
       );
 
+      // Listen for postMessage from Trello (callback_method=postMessage)
+      const messageHandler = async (event) => {
+        // Accept messages from trello.com only
+        if (!event.origin.includes("trello.com")) return;
+        const trelloToken = typeof event.data === "string" ? event.data : null;
+        if (!trelloToken) return;
+
+        window.removeEventListener("message", messageHandler);
+        if (popup && !popup.closed) popup.close();
+
+        try {
+          await axios.post(
+            `${API_URL}/trello/connect`,
+            { trelloToken },
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          toast.success("Trello connected successfully!");
+          await fetchTrelloConnections();
+        } catch (err) {
+          toast.error("Failed to save Trello connection");
+          setError(err.message);
+        } finally {
+          setIsConnecting(false);
+        }
+      };
+
+      window.addEventListener("message", messageHandler);
+
+      // Fallback: if popup is closed without postMessage
       const timer = setInterval(() => {
         if (!popup || popup.closed) {
           clearInterval(timer);
+          window.removeEventListener("message", messageHandler);
           fetchTrelloConnections();
           setIsConnecting(false);
         }
