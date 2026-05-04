@@ -13,6 +13,17 @@ const TrelloConnect = ({ onConnect }) => {
   const onConnectRef = useRef(onConnect);
   onConnectRef.current = onConnect;
 
+  const fetchBoards = async (token) => {
+    try {
+      const res = await axios.get(`${API_URL}/trello/boards`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      return res.data?.boards || [];
+    } catch {
+      return [];
+    }
+  };
+
   const loadConnections = async () => {
     try {
       const token = localStorage.getItem("token");
@@ -22,7 +33,8 @@ const TrelloConnect = ({ onConnect }) => {
       const connections = response.data?.connections || [];
       setTrelloConnections(connections);
       if (connections.length > 0) {
-        onConnectRef.current(connections[0]);
+        const boards = await fetchBoards(token);
+        onConnectRef.current({ ...connections[0], boards });
       }
     } catch (err) {
       console.error("Trello connections fetch error:", err?.response?.status, err?.message);
@@ -56,7 +68,7 @@ const TrelloConnect = ({ onConnect }) => {
       );
 
       // Listen for success message from our callback HTML page
-      const messageHandler = (event) => {
+      const messageHandler = async (event) => {
         if (event.origin !== window.location.origin) return;
         let msg;
         try { msg = JSON.parse(event.data); } catch { return; }
@@ -66,7 +78,10 @@ const TrelloConnect = ({ onConnect }) => {
         if (popup && !popup.closed) popup.close();
 
         if (msg.member) {
-          onConnectRef.current({ member: msg.member });
+          onConnectRef.current({ member: msg.member, boards: [] });
+          const t = localStorage.getItem("token");
+          const boards = await fetchBoards(t);
+          onConnectRef.current({ member: msg.member, boards });
         }
         toast.success("Trello connected successfully!");
         setIsConnecting(false);
@@ -124,7 +139,11 @@ const TrelloConnect = ({ onConnect }) => {
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => onConnect(connection)}
+                onClick={async () => {
+                  const t = localStorage.getItem('token');
+                  const boards = await fetchBoards(t);
+                  onConnect({ ...connection, boards });
+                }}
               >
                 Select
               </Button>

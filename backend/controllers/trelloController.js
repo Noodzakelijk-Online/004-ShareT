@@ -242,16 +242,30 @@ exports.getBoards = async (req, res) => {
       });
     }
 
-    const url = `${TRELLO_API_BASE}/members/me/boards?key=${process.env.TRELLO_API_KEY}&token=${connection.trelloToken}&fields=name,desc,url,closed,idOrganization&organization=true&organization_fields=displayName,name`;
+    const url = `${TRELLO_API_BASE}/members/me/boards?key=${process.env.TRELLO_API_KEY}&token=${connection.trelloToken}&fields=name,desc,url,closed,idOrganization&lists=open&cards=open&card_fields=name,desc,url,due,dueComplete,idBoard,idList&organization=true&organization_fields=displayName,name`;
     const boards = await fetchJSON(url);
 
-    const openBoards = boards.filter(b => !b.closed).map(board => ({
-      ...board,
-      organizationName: board.organization?.displayName || board.organization?.name || 'Personal',
-      displayLabel: board.organization 
-        ? `${board.name} (${board.organization.displayName || board.organization.name})`
-        : `${board.name} (Personal)`
-    }));
+    const openBoards = boards.filter(b => !b.closed).map(board => {
+      // Group cards by list ID
+      const cardsByList = {};
+      (board.cards || []).forEach(card => {
+        if (!cardsByList[card.idList]) cardsByList[card.idList] = [];
+        cardsByList[card.idList].push(card);
+      });
+      // Attach cards to their lists
+      const listsWithCards = (board.lists || []).map(list => ({
+        ...list,
+        cards: cardsByList[list.id] || []
+      }));
+      return {
+        ...board,
+        lists: listsWithCards,
+        organizationName: board.organization?.displayName || board.organization?.name || 'Personal',
+        displayLabel: board.organization
+          ? `${board.name} (${board.organization.displayName || board.organization.name})`
+          : `${board.name} (Personal)`
+      };
+    });
 
     res.json({
       success: true,
