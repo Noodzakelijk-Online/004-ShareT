@@ -62,30 +62,17 @@ const TrelloConnect = ({ onConnect }) => {
         "width=600,height=700,left=200,top=100"
       );
 
-      // Listen for postMessage from Trello (callback_method=postMessage)
+      // Listen for 'trello-connected' message sent by our own callback HTML page
       const messageHandler = async (event) => {
-        // Accept messages from trello.com only
-        if (!event.origin.includes("trello.com")) return;
-        const trelloToken = typeof event.data === "string" ? event.data : null;
-        if (!trelloToken) return;
+        if (event.origin !== window.location.origin) return;
+        if (event.data !== "trello-connected") return;
 
         window.removeEventListener("message", messageHandler);
         if (popup && !popup.closed) popup.close();
 
-        try {
-          await axios.post(
-            `${API_URL}/trello/connect`,
-            { trelloToken },
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
-          toast.success("Trello connected successfully!");
-          await fetchTrelloConnections();
-        } catch (err) {
-          toast.error("Failed to save Trello connection");
-          setError(err.message);
-        } finally {
-          setIsConnecting(false);
-        }
+        await fetchTrelloConnections();
+        toast.success("Trello connected successfully!");
+        setIsConnecting(false);
       };
 
       window.addEventListener("message", messageHandler);

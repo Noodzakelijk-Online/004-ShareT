@@ -34,7 +34,8 @@ async function postJSON(url, data) {
 exports.getAuthUrl = async (req, res) => {
   try {
     const appOrigin = req.query.origin || process.env.PUBLIC_URL || process.env.FRONTEND_URL || `http://localhost:${process.env.PORT || 5005}`;
-    const authUrl = `https://trello.com/1/authorize?expiration=never&name=ShareT&scope=read,write,account&response_type=token&key=${process.env.TRELLO_API_KEY}&return_url=${encodeURIComponent(appOrigin)}&callback_method=postMessage`;
+    const callbackUrl = `${appOrigin.replace(/\/$/, '')}/api/trello/callback`;
+    const authUrl = `https://trello.com/1/authorize?expiration=never&name=ShareT&scope=read,write,account&response_type=token&key=${process.env.TRELLO_API_KEY}&return_url=${encodeURIComponent(callbackUrl)}&callback_method=fragment`;
     
     res.json({
       success: true,
@@ -50,33 +51,41 @@ exports.getAuthUrl = async (req, res) => {
   }
 };
 
-// Handle OAuth callback
+// Handle OAuth callback - serves HTML that connects Trello and closes popup
 exports.handleCallback = async (req, res) => {
-  try {
-    const { token } = req.query;
-    
-    if (!token) {
-      return res.status(400).json({
-        success: false,
-        message: 'No token provided'
-      });
-    }
-
-    // Store token in session temporarily if session exists
-    if (req.session) {
-      req.session.trelloToken = token;
-    }
-    
-    // Redirect to frontend
-    const frontendUrl = process.env.FRONTEND_URL || process.env.PUBLIC_URL || `http://localhost:${process.env.PORT || 5005}`;
-    res.redirect(`${frontendUrl}/trello-callback?token=${token}`);
-  } catch (error) {
-    console.error('Handle callback error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error handling callback'
-    });
+  res.send(`<!DOCTYPE html>
+<html>
+<head><title>Connecting Trello...</title></head>
+<body><p>Connecting to Trello, please wait...</p>
+<script>
+(async function() {
+  const hash = window.location.hash.substring(1);
+  const params = new URLSearchParams(hash);
+  const trelloToken = params.get('token');
+  if (!trelloToken) {
+    document.body.innerHTML = '<p>Error: No token from Trello. Close this window and try again.</p>';
+    return;
   }
+  try {
+    const jwt = localStorage.getItem('token');
+    const res = await fetch('/api/trello/connect', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + jwt },
+      body: JSON.stringify({ trelloToken })
+    });
+    if (res.ok) {
+      if (window.opener) window.opener.postMessage('trello-connected', window.location.origin);
+      window.close();
+    } else {
+      const d = await res.json();
+      document.body.innerHTML = '<p>Error: ' + (d.message || 'Failed to connect') + '. Close this window and try again.</p>';
+    }
+  } catch(err) {
+    document.body.innerHTML = '<p>Error: ' + err.message + '. Close this window and try again.</p>';
+  }
+})();
+<\/script>
+</body></html>`);
 };
 
 // Connect Trello with token
