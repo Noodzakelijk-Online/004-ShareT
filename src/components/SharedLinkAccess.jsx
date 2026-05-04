@@ -32,7 +32,13 @@ const SharedLinkAccess = ({ linkToken }) => {
       const response = await axios.get(`${API_URL}/shared-access/${linkToken}`);
       
       if (response.data.linkInfo) {
-        setLinkInfo(response.data.linkInfo);
+        const info = response.data.linkInfo;
+        setLinkInfo(info);
+        // Skip email verification if no email restriction
+        if (!info.requiresEmail) {
+          window.location.href = `/shared/${linkToken}/card`;
+          return;
+        }
       } else {
         throw new Error('Invalid link or link information not found');
       }
@@ -49,9 +55,8 @@ const SharedLinkAccess = ({ linkToken }) => {
     setError(null);
     
     try {
-      const response = await axios.post(`${API_URL}/email-verification/send-verification`, {
-        email,
-        linkToken
+      const response = await axios.post(`${API_URL}/shared-access/${linkToken}/verify-email`, {
+        email
       });
       
       if (response.data.success) {
@@ -78,18 +83,14 @@ const SharedLinkAccess = ({ linkToken }) => {
     setError(null);
     
     try {
-      const response = await axios.post(`${API_URL}/email-verification/verify-code`, {
+      const response = await axios.post(`${API_URL}/shared-access/${linkToken}/confirm-verification`, {
         email,
-        linkToken,
         code: verificationCode
       });
       
-      if (response.data.success && response.data.accessGranted) {
+      if (response.data.success) {
         setAccessGranted(true);
         toast.success("Access granted!");
-        
-        // Store access token
-        localStorage.setItem('shareT_access_token', response.data.accessToken);
         
         // Redirect to card view
         setTimeout(() => {

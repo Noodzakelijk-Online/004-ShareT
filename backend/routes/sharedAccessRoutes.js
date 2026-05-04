@@ -10,6 +10,7 @@ const sharedAccessController = require('../controllers/sharedAccessController');
 // Public routes - no authentication required
 router.get('/:shareId', sharedAccessController.getSharedCard);
 router.post('/:shareId/verify-email', sharedAccessController.verifyEmail);
+router.post('/:shareId/confirm-verification', sharedAccessController.confirmVerification);
 
 // Attachments
 router.get('/:shareId/attachments', sharedAccessController.getAttachments);
