@@ -1,10 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Share, Copy, Eye, EyeOff, QrCode, CheckCircle2 } from "lucide-react";
-import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { sharedLinks } from '../api';
@@ -14,11 +13,7 @@ const NewShareForm = ({ shareType, setShareType, cardCount, setCardCount, credit
   const [showPassword, setShowPassword] = useState(false);
   const [selectedList, setSelectedList] = useState(null);
   const [generatedUrls, setGeneratedUrls] = useState(null);
-  const [isSelectFromList, setIsSelectFromList] = useState(!!trelloData);
-
-  useEffect(() => {
-    if (trelloData) setIsSelectFromList(true);
-  }, [trelloData]);
+  const [selectedBoard, setSelectedBoard] = useState(null);
   const [selectedCard, setSelectedCard] = useState(null);
   const [cardUrl, setCardUrl] = useState('');
   const [expiryDate, setExpiryDate] = useState('');
@@ -61,20 +56,11 @@ const NewShareForm = ({ shareType, setShareType, cardCount, setCardCount, credit
         // Determine card info from selection or URL
         let cardId, cardName, boardId, boardName;
         
-        if (isSelectFromList && selectedCard) {
+        if (selectedCard) {
           cardId = selectedCard.id;
           cardName = selectedCard.name;
-          // Find the board this card belongs to
-          if (trelloData?.boards) {
-            for (const board of trelloData.boards) {
-              const found = board.lists?.some(l => l.cards?.some(c => c.id === cardId));
-              if (found) {
-                boardId = board.id;
-                boardName = board.displayLabel || board.name;
-                break;
-              }
-            }
-          }
+          boardId = selectedBoard?.id || '';
+          boardName = selectedBoard?.displayLabel || selectedBoard?.name || '';
         } else if (cardUrl) {
           // Parse card ID from Trello URL
           const match = cardUrl.match(/\/c\/([a-zA-Z0-9]+)/);
@@ -113,15 +99,13 @@ const NewShareForm = ({ shareType, setShareType, cardCount, setCardCount, credit
           setGeneratedUrls({ cardUrl: shareUrl, shareId: response.data.shareId });
         }
       } else if (shareType === "list" && selectedList) {
-        // For list shares, create individual card shares
         const cardUrls = [];
         for (const card of (selectedList.cards || [])) {
-          const board = trelloData?.boards?.find(b => b.lists?.some(l => l.id === selectedList.id));
           const response = await sharedLinks.create({
             cardId: card.id,
             cardName: card.name,
-            boardId: board?.id || '',
-            boardName: board?.displayLabel || board?.name || '',
+            boardId: selectedBoard?.id || '',
+            boardName: selectedBoard?.displayLabel || selectedBoard?.name || '',
             permissions: {
               canView: true,
               canComment: true,
@@ -176,77 +160,101 @@ const NewShareForm = ({ shareType, setShareType, cardCount, setCardCount, credit
             </Select>
           </div>
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <Label htmlFor="name">Name*</Label>
-              <div className="flex items-center space-x-2">
-                <Label htmlFor="nameToggle" className="text-sm">Select from list</Label>
-                <Switch id="nameToggle" checked={isSelectFromList} onCheckedChange={setIsSelectFromList} />
-              </div>
-            </div>
-            {isSelectFromList ? (
-              <Select onValueChange={(cardId) => setSelectedCard(trelloData?.boards ? trelloData.boards.flatMap(b => b.lists || []).flatMap(l => l.cards || []).find(c => c.id === cardId) : null)}>
-                <SelectTrigger className="h-10">
-                  <SelectValue placeholder="Select a card" />
-                </SelectTrigger>
-                <SelectContent>
-                  {trelloData?.boards?.length > 0 ? (
-                    trelloData.boards.map((board) => (
-                      <SelectGroup key={board.id}>
-                        <SelectLabel>{board.displayLabel || board.name}</SelectLabel>
-                        {(board.lists || []).flatMap(list => list.cards || []).map((card) => (
-                          <SelectItem key={card.id} value={card.id}>
-                            {card.name}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    ))
-                  ) : trelloData ? (
-                    <SelectItem disabled value="loading">Loading boards...</SelectItem>
-                  ) : (
-                    <SelectItem disabled value="connect">Connect to Trello to see cards</SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
-            ) : (
-              <Input 
-                id="name" 
-                placeholder="Enter card URL" 
-                value={cardUrl}
-                onChange={(e) => setCardUrl(e.target.value)}
-                className="h-10"
-              />
-            )}
+            <Label htmlFor="boardSelect">Board</Label>
+            <Select
+              onValueChange={(boardId) => {
+                const board = trelloData?.boards?.find(b => b.id === boardId) || null;
+                setSelectedBoard(board);
+                setSelectedCard(null);
+                setSelectedList(null);
+              }}
+            >
+              <SelectTrigger id="boardSelect" className="h-10">
+                <SelectValue placeholder={trelloData ? 'Select a board' : 'Connect Trello first'} />
+              </SelectTrigger>
+              <SelectContent>
+                {trelloData?.boards?.length > 0 ? (
+                  trelloData.boards.map(board => (
+                    <SelectItem key={board.id} value={board.id}>{board.name}</SelectItem>
+                  ))
+                ) : (
+                  <SelectItem disabled value="none">
+                    {trelloData ? 'Loading boards...' : 'Connect Trello first'}
+                  </SelectItem>
+                )}
+              </SelectContent>
+            </Select>
           </div>
         </div>
+
+        {shareType === 'card' && (
+          <div>
+            <Label htmlFor="cardSelect">Card</Label>
+            <Select
+              disabled={!selectedBoard}
+              onValueChange={(cardId) => {
+                const allCards = (selectedBoard?.lists || []).flatMap(l => l.cards || []);
+                setSelectedCard(allCards.find(c => c.id === cardId) || null);
+              }}
+            >
+              <SelectTrigger id="cardSelect" className="h-10">
+                <SelectValue placeholder={selectedBoard ? 'Select a card' : 'Select a board first'} />
+              </SelectTrigger>
+              <SelectContent>
+                {(selectedBoard?.lists || []).flatMap(l => l.cards || []).length > 0 ? (
+                  (selectedBoard.lists || []).flatMap(l => l.cards || []).map(card => (
+                    <SelectItem key={card.id} value={card.id}>{card.name}</SelectItem>
+                  ))
+                ) : (
+                  <SelectItem disabled value="none">
+                    {selectedBoard ? 'No cards in this board' : 'Select a board first'}
+                  </SelectItem>
+                )}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
+        {shareType === 'list' && (
+          <div>
+            <Label htmlFor="listSelect">List</Label>
+            <Select
+              disabled={!selectedBoard}
+              onValueChange={(listId) => {
+                setSelectedList((selectedBoard?.lists || []).find(l => l.id === listId) || null);
+              }}
+            >
+              <SelectTrigger id="listSelect" className="h-10">
+                <SelectValue placeholder={selectedBoard ? 'Select a list' : 'Select a board first'} />
+              </SelectTrigger>
+              <SelectContent>
+                {(selectedBoard?.lists || []).length > 0 ? (
+                  (selectedBoard.lists || []).map(list => (
+                    <SelectItem key={list.id} value={list.id}>{list.name}</SelectItem>
+                  ))
+                ) : (
+                  <SelectItem disabled value="none">
+                    {selectedBoard ? 'No lists in this board' : 'Select a board first'}
+                  </SelectItem>
+                )}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
+        {!trelloData && shareType === 'card' && (
+          <div>
+            <Label htmlFor="cardUrl">Or paste card URL</Label>
+            <Input
+              id="cardUrl"
+              placeholder="https://trello.com/c/..."
+              value={cardUrl}
+              onChange={(e) => setCardUrl(e.target.value)}
+              className="h-10"
+            />
+          </div>
+        )}
       </div>
-      {shareType === "list" && (
-        <div className="mt-4">
-          <Label htmlFor="listSelect">Select List</Label>
-          <Select onValueChange={(listId) => setSelectedList(trelloData?.boards ? trelloData.boards.flatMap(b => b.lists || []).find(l => l.id === listId) : null)}>
-            <SelectTrigger id="listSelect" className="h-10">
-              <SelectValue placeholder="Select a list" />
-            </SelectTrigger>
-            <SelectContent>
-              {trelloData?.boards?.length > 0 ? (
-                trelloData.boards.map((board) => (
-                  <SelectGroup key={board.id}>
-                    <SelectLabel>{board.displayLabel || board.name}</SelectLabel>
-                    {(board.lists || []).map((list) => (
-                      <SelectItem key={list.id} value={list.id}>
-                        {list.name}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                ))
-              ) : trelloData ? (
-                <SelectItem disabled value="loading">Loading boards...</SelectItem>
-              ) : (
-                <SelectItem disabled value="connect">Connect to Trello to see lists</SelectItem>
-              )}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
       <div className="flex space-x-4">
         <div className="w-1/2">
           <Label htmlFor="secret">Secret</Label>
