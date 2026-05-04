@@ -1,46 +1,38 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import axios from "axios";
 import { toast } from "sonner";
 
+const API_URL = import.meta.env.VITE_API_URL || "/api";
+
 const TrelloConnect = ({ onConnect }) => {
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState(null);
   const [trelloConnections, setTrelloConnections] = useState([]);
+  const onConnectRef = useRef(onConnect);
+  onConnectRef.current = onConnect;
 
-  const API_URL =
-    import.meta.env.VITE_API_URL || "/api";
-
-  const fetchTrelloConnections = useCallback(async () => {
-    const token = localStorage.getItem("token");
-    if (!token) return;
-
+  const loadConnections = async () => {
     try {
-      const response = await axios.get(
-        `${API_URL}/trello/connections`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
+      const token = localStorage.getItem("token");
+      const response = await axios.get(`${API_URL}/trello/connections`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       const connections = response.data?.connections || [];
       setTrelloConnections(connections);
-
-      // ✅ AUTO-SELECT FIRST CONNECTION
-      if (connections.length === 1) {
-        onConnect(connections[0]);
+      if (connections.length > 0) {
+        onConnectRef.current(connections[0]);
       }
     } catch (err) {
-      console.error("Error fetching Trello connections:", err);
+      console.error("Trello connections fetch error:", err?.response?.status, err?.message);
     }
-  }, [API_URL, onConnect]);
+  };
 
+  // Load existing connection on mount
   useEffect(() => {
-    fetchTrelloConnections();
-  }, [fetchTrelloConnections]);
+    loadConnections();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleConnect = async () => {
     setIsConnecting(true);
@@ -63,8 +55,8 @@ const TrelloConnect = ({ onConnect }) => {
         "width=600,height=700,left=200,top=100"
       );
 
-      // Listen for 'trello-connected' message sent by our own callback HTML page
-      const messageHandler = async (event) => {
+      // Listen for success message from our callback HTML page
+      const messageHandler = (event) => {
         if (event.origin !== window.location.origin) return;
         let msg;
         try { msg = JSON.parse(event.data); } catch { return; }
@@ -74,21 +66,20 @@ const TrelloConnect = ({ onConnect }) => {
         if (popup && !popup.closed) popup.close();
 
         if (msg.member) {
-          onConnect({ member: msg.member });
+          onConnectRef.current({ member: msg.member });
         }
         toast.success("Trello connected successfully!");
         setIsConnecting(false);
-        await fetchTrelloConnections();
       };
 
       window.addEventListener("message", messageHandler);
 
-      // Fallback: if popup is closed without postMessage
+      // Fallback: if popup closed without postMessage, poll backend
       const timer = setInterval(() => {
         if (!popup || popup.closed) {
           clearInterval(timer);
           window.removeEventListener("message", messageHandler);
-          fetchTrelloConnections();
+          loadConnections();
           setIsConnecting(false);
         }
       }, 500);
