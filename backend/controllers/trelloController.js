@@ -242,35 +242,48 @@ exports.getBoards = async (req, res) => {
       });
     }
 
-    const url = `${TRELLO_API_BASE}/members/me/boards?key=${process.env.TRELLO_API_KEY}&token=${connection.trelloToken}&fields=name,desc,url,closed,idOrganization&lists=open&cards=open&card_fields=name,desc,url,due,dueComplete,idBoard,idList&organization=true&organization_fields=displayName,name`;
-    const boards = await fetchJSON(url);
+    const key = process.env.TRELLO_API_KEY;
+    const token = connection.trelloToken;
 
-    const openBoards = boards.filter(b => !b.closed).map(board => {
-      // Group cards by list ID
-      const cardsByList = {};
-      (board.cards || []).forEach(card => {
-        if (!cardsByList[card.idList]) cardsByList[card.idList] = [];
-        cardsByList[card.idList].push(card);
-      });
-      // Attach cards to their lists
-      const listsWithCards = (board.lists || []).map(list => ({
-        ...list,
-        cards: cardsByList[list.id] || []
-      }));
-      return {
-        ...board,
-        lists: listsWithCards,
-        organizationName: board.organization?.displayName || board.organization?.name || 'Personal',
-        displayLabel: board.organization
-          ? `${board.name} (${board.organization.displayName || board.organization.name})`
-          : `${board.name} (Personal)`
-      };
-    });
+    // Step 1: Get all boards with organization info
+    const boardListUrl = `${TRELLO_API_BASE}/members/me/boards?key=${key}&token=${token}&fields=name,desc,url,closed,idOrganization&organization=true&organization_fields=displayName,name`;
+    const boards = await fetchJSON(boardListUrl);
+    const openBoards = boards.filter(b => !b.closed);
+
+    // Step 2: For each board, fetch lists+cards in parallel (/boards/:id supports cards=open)
+    const openBoardsWithData = await Promise.all(openBoards.map(async board => {
+      try {
+        const boardDataUrl = `${TRELLO_API_BASE}/boards/${board.id}?key=${key}&token=${token}&lists=open&cards=open&card_fields=name,desc,url,due,dueComplete,idBoard,idList`;
+        const boardData = await fetchJSON(boardDataUrl);
+
+        const cardsByList = {};
+        (boardData.cards || []).forEach(card => {
+          if (!cardsByList[card.idList]) cardsByList[card.idList] = [];
+          cardsByList[card.idList].push(card);
+        });
+
+        const listsWithCards = (boardData.lists || []).map(list => ({
+          ...list,
+          cards: cardsByList[list.id] || []
+        }));
+
+        return {
+          ...board,
+          lists: listsWithCards,
+          organizationName: board.organization?.displayName || board.organization?.name || 'Personal',
+          displayLabel: board.organization
+            ? `${board.name} (${board.organization.displayName || board.organization.name})`
+            : `${board.name} (Personal)`
+        };
+      } catch {
+        return { ...board, lists: [], organizationName: 'Personal', displayLabel: board.name };
+      }
+    }));
 
     res.json({
       success: true,
-      data: openBoards,
-      boards: openBoards
+      data: openBoardsWithData,
+      boards: openBoardsWithData
     });
   } catch (error) {
     console.error('Get boards error:', error);
