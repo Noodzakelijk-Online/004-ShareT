@@ -83,7 +83,7 @@ exports.handleCallback = async (req, res) => {
 // Connect Trello with token
 exports.connect = async (req, res) => {
   try {
-    const { token } = req.body;
+    const token = req.body.token || req.body.trelloToken;
     const userId = req.user._id || req.user.id;
 
     if (!token) {
@@ -127,6 +127,24 @@ exports.connect = async (req, res) => {
       success: false,
       message: 'Error connecting Trello'
     });
+  }
+};
+
+// Get all connections for user
+exports.getConnections = async (req, res) => {
+  try {
+    const userId = req.user._id || req.user.id;
+    const connection = await TrelloConnection.findByUserId(userId);
+    const connections = connection ? [{
+      id: connection._id,
+      trelloUsername: connection.trelloUsername || connection.trelloMemberId,
+      trelloFullName: connection.trelloFullName || connection.trelloMemberId,
+      connectedAt: connection.connectedAt
+    }] : [];
+    res.json({ success: true, connections });
+  } catch (error) {
+    console.error('Get connections error:', error);
+    res.status(500).json({ success: false, message: 'Error fetching connections' });
   }
 };
 

@@ -11,10 +11,12 @@ const { protect } = require('../middleware/auth');
 // OAuth routes
 router.get('/auth-url', protect, trelloController.getAuthUrl);
 router.get('/callback', trelloController.handleCallback);
+router.post('/connect', protect, trelloController.connect);
 router.post('/disconnect', protect, trelloController.disconnect);
 
-// Status
+// Status & connections
 router.get('/status', protect, trelloController.getStatus);
+router.get('/connections', protect, trelloController.getConnections);
 
 // Boards
 router.get('/boards', protect, trelloController.getBoards);
