@@ -49,6 +49,7 @@ const TrelloConnect = ({ onConnect }) => {
     try {
       const response = await axios.get(`${API_URL}/trello/auth-url`, {
         headers: { Authorization: `Bearer ${token}` },
+        params: { origin: window.location.origin },
       });
 
       if (!response.data?.authUrl) {

@@ -33,7 +33,7 @@ async function postJSON(url, data) {
 // Get Trello auth URL
 exports.getAuthUrl = async (req, res) => {
   try {
-    const appOrigin = process.env.PUBLIC_URL || process.env.FRONTEND_URL || `http://localhost:${process.env.PORT || 5005}`;
+    const appOrigin = req.query.origin || process.env.PUBLIC_URL || process.env.FRONTEND_URL || `http://localhost:${process.env.PORT || 5005}`;
     const authUrl = `https://trello.com/1/authorize?expiration=never&name=ShareT&scope=read,write,account&response_type=token&key=${process.env.TRELLO_API_KEY}&return_url=${encodeURIComponent(appOrigin)}&callback_method=postMessage`;
     
     res.json({
