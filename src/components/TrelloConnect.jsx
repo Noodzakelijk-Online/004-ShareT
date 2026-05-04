@@ -66,14 +66,19 @@ const TrelloConnect = ({ onConnect }) => {
       // Listen for 'trello-connected' message sent by our own callback HTML page
       const messageHandler = async (event) => {
         if (event.origin !== window.location.origin) return;
-        if (event.data !== "trello-connected") return;
+        let msg;
+        try { msg = JSON.parse(event.data); } catch { return; }
+        if (msg?.type !== "trello-connected") return;
 
         window.removeEventListener("message", messageHandler);
         if (popup && !popup.closed) popup.close();
 
-        await fetchTrelloConnections();
+        if (msg.member) {
+          onConnect({ member: msg.member });
+        }
         toast.success("Trello connected successfully!");
         setIsConnecting(false);
+        await fetchTrelloConnections();
       };
 
       window.addEventListener("message", messageHandler);

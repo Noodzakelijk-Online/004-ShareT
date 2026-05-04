@@ -74,7 +74,8 @@ exports.handleCallback = async (req, res) => {
       body: JSON.stringify({ trelloToken })
     });
     if (res.ok) {
-      if (window.opener) window.opener.postMessage('trello-connected', window.location.origin);
+      const data = await res.json();
+      if (window.opener) window.opener.postMessage(JSON.stringify({ type: 'trello-connected', member: data.member }), window.location.origin);
       window.close();
     } else {
       const d = await res.json();
@@ -149,8 +150,13 @@ exports.getConnections = async (req, res) => {
     const connection = await TrelloConnection.findByUserId(userId);
     const connections = connection ? [{
       id: connection._id,
-      trelloUsername: connection.trelloUsername || connection.trelloMemberId,
-      trelloFullName: connection.trelloFullName || connection.trelloMemberId,
+      member: {
+        id: connection.trelloMemberId,
+        username: connection.trelloUsername,
+        fullName: connection.trelloFullName
+      },
+      trelloUsername: connection.trelloUsername,
+      trelloFullName: connection.trelloFullName,
       connectedAt: connection.connectedAt
     }] : [];
     res.json({ success: true, connections });
