@@ -193,15 +193,10 @@ const NewShareForm = ({ shareType, setShareType, cardCount, setCardCount, credit
                     trelloData.boards.map((board) => (
                       <SelectGroup key={board.id}>
                         <SelectLabel>{board.displayLabel || board.name}</SelectLabel>
-                        {(board.lists || []).map((list) => (
-                          <SelectGroup key={list.id}>
-                            <SelectLabel className="pl-4">{list.name}</SelectLabel>
-                            {(list.cards || []).map((card) => (
-                              <SelectItem key={card.id} value={card.id} className="pl-8">
-                                {card.name}
-                              </SelectItem>
-                            ))}
-                          </SelectGroup>
+                        {(board.lists || []).flatMap(list => list.cards || []).map((card) => (
+                          <SelectItem key={card.id} value={card.id}>
+                            {card.name}
+                          </SelectItem>
                         ))}
                       </SelectGroup>
                     ))
