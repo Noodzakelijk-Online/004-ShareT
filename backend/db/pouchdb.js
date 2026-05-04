@@ -190,6 +190,8 @@ const TrelloConnection = {
       userId: data.userId,
       trelloToken: data.trelloToken,
       trelloMemberId: data.trelloMemberId || null,
+      trelloUsername: data.trelloUsername || null,
+      trelloFullName: data.trelloFullName || null,
       connectedAt: new Date().toISOString(),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
