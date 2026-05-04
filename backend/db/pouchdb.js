@@ -76,6 +76,14 @@ async function createIndexes() {
     await databases.trello_connections.createIndex({
       index: { fields: ['userId'] }
     });
+
+    // Shared links indexes
+    await databases.shared_links.createIndex({
+      index: { fields: ['shareId'] }
+    });
+    await databases.shared_links.createIndex({
+      index: { fields: ['userId'] }
+    });
     
     console.log('PouchDB indexes created successfully');
   } catch (err) {

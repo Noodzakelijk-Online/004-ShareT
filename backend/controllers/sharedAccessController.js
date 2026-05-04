@@ -103,6 +103,12 @@ exports.getSharedCard = async (req, res) => {
 
     res.json({
       success: true,
+      linkInfo: {
+        trelloCardName: share.cardName,
+        trelloBoardName: share.boardName,
+        requiresEmail: share.allowedEmails && share.allowedEmails.length > 0,
+        permissions: share.permissions
+      },
       data: {
         card,
         permissions: share.permissions,

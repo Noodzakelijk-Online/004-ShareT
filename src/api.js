@@ -178,7 +178,7 @@ export const sharedAccess = {
 
   confirmEmail: (shareId, token) => apiRequest(`/shared-access/${shareId}/confirm-email/${token}`),
 
-  getCard: (shareId, token) => apiRequest(`/shared-access/${shareId}/card?token=${token}`),
+  getCard: (shareId) => apiRequest(`/shared-access/${shareId}`),
 
   // Fix #12/#13: Get comments with ISO timestamps, full history
   getComments: (shareId) => apiRequest(`/shared-access/${shareId}/comments`),
