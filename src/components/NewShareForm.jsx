@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,11 @@ const NewShareForm = ({ shareType, setShareType, cardCount, setCardCount, credit
   const [showPassword, setShowPassword] = useState(false);
   const [selectedList, setSelectedList] = useState(null);
   const [generatedUrls, setGeneratedUrls] = useState(null);
-  const [isSelectFromList, setIsSelectFromList] = useState(false);
+  const [isSelectFromList, setIsSelectFromList] = useState(!!trelloData);
+
+  useEffect(() => {
+    if (trelloData) setIsSelectFromList(true);
+  }, [trelloData]);
   const [selectedCard, setSelectedCard] = useState(null);
   const [cardUrl, setCardUrl] = useState('');
   const [expiryDate, setExpiryDate] = useState('');
@@ -176,19 +180,18 @@ const NewShareForm = ({ shareType, setShareType, cardCount, setCardCount, credit
               <Label htmlFor="name">Name*</Label>
               <div className="flex items-center space-x-2">
                 <Label htmlFor="nameToggle" className="text-sm">Select from list</Label>
-                <Switch id="nameToggle" onCheckedChange={setIsSelectFromList} />
+                <Switch id="nameToggle" checked={isSelectFromList} onCheckedChange={setIsSelectFromList} />
               </div>
             </div>
             {isSelectFromList ? (
-              <Select onValueChange={(cardId) => setSelectedCard(trelloData ? trelloData.boards.flatMap(b => b.lists || []).flatMap(l => l.cards || []).find(c => c.id === cardId) : null)}>
+              <Select onValueChange={(cardId) => setSelectedCard(trelloData?.boards ? trelloData.boards.flatMap(b => b.lists || []).flatMap(l => l.cards || []).find(c => c.id === cardId) : null)}>
                 <SelectTrigger className="h-10">
                   <SelectValue placeholder="Select a card" />
                 </SelectTrigger>
                 <SelectContent>
-                  {trelloData ? (
+                  {trelloData?.boards?.length > 0 ? (
                     trelloData.boards.map((board) => (
                       <SelectGroup key={board.id}>
-                        {/* Fix #1: Show board with workspace/organization name */}
                         <SelectLabel>{board.displayLabel || board.name}</SelectLabel>
                         {(board.lists || []).map((list) => (
                           <SelectGroup key={list.id}>
@@ -202,8 +205,10 @@ const NewShareForm = ({ shareType, setShareType, cardCount, setCardCount, credit
                         ))}
                       </SelectGroup>
                     ))
+                  ) : trelloData ? (
+                    <SelectItem disabled value="loading">Loading boards...</SelectItem>
                   ) : (
-                    <SelectItem value="connect">Connect to Trello to see cards</SelectItem>
+                    <SelectItem disabled value="connect">Connect to Trello to see cards</SelectItem>
                   )}
                 </SelectContent>
               </Select>
@@ -222,15 +227,14 @@ const NewShareForm = ({ shareType, setShareType, cardCount, setCardCount, credit
       {shareType === "list" && (
         <div className="mt-4">
           <Label htmlFor="listSelect">Select List</Label>
-          <Select onValueChange={(listId) => setSelectedList(trelloData ? trelloData.boards.flatMap(b => b.lists || []).find(l => l.id === listId) : null)}>
+          <Select onValueChange={(listId) => setSelectedList(trelloData?.boards ? trelloData.boards.flatMap(b => b.lists || []).find(l => l.id === listId) : null)}>
             <SelectTrigger id="listSelect" className="h-10">
               <SelectValue placeholder="Select a list" />
             </SelectTrigger>
             <SelectContent>
-              {trelloData ? (
+              {trelloData?.boards?.length > 0 ? (
                 trelloData.boards.map((board) => (
                   <SelectGroup key={board.id}>
-                    {/* Fix #1: Show workspace name */}
                     <SelectLabel>{board.displayLabel || board.name}</SelectLabel>
                     {(board.lists || []).map((list) => (
                       <SelectItem key={list.id} value={list.id}>
@@ -239,8 +243,10 @@ const NewShareForm = ({ shareType, setShareType, cardCount, setCardCount, credit
                     ))}
                   </SelectGroup>
                 ))
+              ) : trelloData ? (
+                <SelectItem disabled value="loading">Loading boards...</SelectItem>
               ) : (
-                <SelectItem value="connect">Connect to Trello to see lists</SelectItem>
+                <SelectItem disabled value="connect">Connect to Trello to see lists</SelectItem>
               )}
             </SelectContent>
           </Select>
