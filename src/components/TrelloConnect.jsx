@@ -36,7 +36,7 @@ const TrelloConnect = ({ onConnect }) => {
     } catch (err) {
       console.error("Error fetching Trello connections:", err);
     }
-  }, [API_URL, token, onConnect]);
+  }, [API_URL, onConnect]);
 
   useEffect(() => {
     fetchTrelloConnections();
