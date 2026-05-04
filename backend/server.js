@@ -263,8 +263,11 @@ if (fs.existsSync(frontendPath)) {
     single: true           // SPA mode
   });
 
-  // Use sirv for static files
-  app.use(sirvHandler);
+  // Use sirv for static files — skip API paths so they never get cached as HTML
+  app.use((req, res, next) => {
+    if (req.path.startsWith('/api/')) return next();
+    sirvHandler(req, res, next);
+  });
 }
 
 // SPA fallback for routes not handled by sirv (when in production mode)
