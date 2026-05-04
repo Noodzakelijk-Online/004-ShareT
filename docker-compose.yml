@@ -16,16 +16,6 @@ services:
       - NODE_ENV=production
       - PORT=5005
       - DATA_DIR=/app/backend/data
-      - TRELLO_API_KEY=${TRELLO_API_KEY}
-      - TRELLO_API_SECRET=${TRELLO_API_SECRET}
-      - TRELLO_CALLBACK_URL=${TRELLO_CALLBACK_URL}
-      - JWT_SECRET=${JWT_SECRET:-change-this-secret-in-production}
-      - SESSION_SECRET=${SESSION_SECRET:-change-this-session-secret}
-      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-change-this-32char-encrypt-key}
-      - PUBLIC_URL=${PUBLIC_URL:-http://localhost:5005}
-      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:5005}
-      - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:5005}
-      - COUCHDB_URL=${COUCHDB_URL:-}
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5005/health"]
       interval: 30s
