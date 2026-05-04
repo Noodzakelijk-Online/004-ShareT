@@ -71,6 +71,11 @@ async function createIndexes() {
     await databases.users.createIndex({
       index: { fields: ['passwordResetToken'] }
     });
+
+    // Trello connections index
+    await databases.trello_connections.createIndex({
+      index: { fields: ['userId'] }
+    });
     
     console.log('PouchDB indexes created successfully');
   } catch (err) {

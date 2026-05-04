@@ -11,9 +11,9 @@ const TrelloConnect = ({ onConnect }) => {
 
   const API_URL =
     import.meta.env.VITE_API_URL || "/api";
-  const token = localStorage.getItem("token");
 
   const fetchTrelloConnections = useCallback(async () => {
+    const token = localStorage.getItem("token");
     if (!token) return;
 
     try {
@@ -47,6 +47,7 @@ const TrelloConnect = ({ onConnect }) => {
     setError(null);
 
     try {
+      const token = localStorage.getItem("token");
       const response = await axios.get(`${API_URL}/trello/auth-url`, {
         headers: { Authorization: `Bearer ${token}` },
         params: { origin: window.location.origin },

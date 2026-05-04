@@ -110,13 +110,17 @@ exports.connect = async (req, res) => {
     if (existing) {
       await TrelloConnection.updateByUserId(userId, {
         trelloToken: token,
-        trelloMemberId: member.id
+        trelloMemberId: member.id,
+        trelloUsername: member.username,
+        trelloFullName: member.fullName
       });
     } else {
       await TrelloConnection.create({
         userId,
         trelloToken: token,
-        trelloMemberId: member.id
+        trelloMemberId: member.id,
+        trelloUsername: member.username,
+        trelloFullName: member.fullName
       });
     }
 
