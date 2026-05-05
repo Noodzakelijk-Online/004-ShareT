@@ -1,7 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Loader2, FileText, Paperclip, Calendar, MessageSquare, AlertTriangle, Users, CheckSquare, Link2, History, RefreshCw, ExternalLink, Upload } from "lucide-react";
@@ -295,440 +293,337 @@ const SharedCardView = ({ linkToken }) => {
     }
   };
   
+  const TRELLO_COLORS = {
+    green: '#4BCE97', yellow: '#F5CD47', orange: '#FAA53D', red: '#F87168',
+    purple: '#9F8FEF', blue: '#579DFF', sky: '#6CC3E0', lime: '#94C748',
+    pink: '#E774BB', black: '#8590A2',
+  };
+
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center min-h-[300px]">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      <div className="flex justify-center items-center min-h-screen bg-[#f1f2f4]">
+        <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
       </div>
     );
   }
-  
+
   if (error) {
     return (
-      <Card className="w-full max-w-4xl mx-auto">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-destructive">
-            <AlertTriangle className="h-5 w-5" />
-            Access Error
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p>{error}</p>
-        </CardContent>
-        <CardFooter>
-          <Button variant="outline" onClick={() => fetchCardData()} className="w-full">
-            Try Again
-          </Button>
-        </CardFooter>
-      </Card>
+      <div className="flex justify-center items-center min-h-screen bg-[#f1f2f4] p-4">
+        <div className="bg-white rounded-lg shadow p-6 max-w-md w-full text-center">
+          <AlertTriangle className="h-10 w-10 text-red-400 mx-auto mb-3" />
+          <h2 className="text-lg font-semibold text-gray-700 mb-2">Access Error</h2>
+          <p className="text-gray-500 mb-4">{error}</p>
+          <Button onClick={fetchCardData} variant="outline" className="w-full">Try Again</Button>
+        </div>
+      </div>
     );
   }
-  
-  if (!cardData) {
-    return (
-      <Card className="w-full max-w-4xl mx-auto">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-destructive">
-            <AlertTriangle className="h-5 w-5" />
-            Card Not Found
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p>The Trello card you're trying to access doesn't exist or has been deleted.</p>
-        </CardContent>
-      </Card>
-    );
-  }
-  
+
+  if (!cardData) return null;
+
+  const isOverdue = cardData.due && !cardData.dueComplete && new Date(cardData.due) < new Date();
+
   return (
-    <Card className="w-full max-w-4xl mx-auto">
-      <CardHeader>
-        <div className="flex justify-between items-start">
-          <div>
-            <CardTitle>{cardData.name}</CardTitle>
-            <CardDescription className="mt-1 flex items-center gap-4">
-              <span>
-                {permissions.canComment ? 'You can view and comment on this card' : 'You have view-only access'}
-              </span>
-              {/* Fix #6: Last refreshed indicator */}
-              <span className="text-xs flex items-center gap-1">
-                <RefreshCw className="h-3 w-3" />
-                Refreshed {formatExactDate(lastRefreshed)}
-              </span>
-            </CardDescription>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => fetchCardData()}>
-              <RefreshCw className="h-4 w-4 mr-1" /> Refresh
-            </Button>
-          </div>
+    <div className="min-h-screen bg-[#f1f2f4]">
+      {/* Cover */}
+      {cardData.cover?.color && (
+        <div className="w-full h-32" style={{ backgroundColor: cardData.cover.color }} />
+      )}
+
+      <div className="max-w-4xl mx-auto px-4 py-6">
+        {/* Card title + breadcrumb */}
+        <div className="mb-4">
+          <h1 className="text-2xl font-bold text-gray-800 leading-tight">{cardData.name}</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            Shared via <span className="font-medium text-[#0079bf]">ShareT</span>
+            {cardData.idBoard && <span className="ml-2 text-gray-400">· Board ID: {cardData.idBoard}</span>}
+          </p>
         </div>
 
-        {/* Fix #17: Client name input (persisted) */}
-        {permissions.canComment && (
-          <div className="mt-3">
-            <input
-              type="text"
-              value={clientName}
-              onChange={(e) => handleNameChange(e.target.value)}
-              placeholder="Your name (shown on comments)"
-              className="w-full max-w-xs p-2 text-sm border rounded-md bg-background"
-            />
-          </div>
-        )}
+        <div className="flex flex-col lg:flex-row gap-4">
+          {/* ── LEFT: main content ── */}
+          <div className="flex-1 min-w-0 space-y-5">
 
-        {/* Fix #10: Show assigned members */}
-        {members.length > 0 && (
-          <div className="flex items-center gap-2 mt-3">
-            <Users className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">Members:</span>
-            <div className="flex -space-x-2">
-              {members.map(member => (
-                <Avatar key={member.id || member.username} className="h-7 w-7 border-2 border-background">
-                  <AvatarImage src={member.avatarUrl ? `${member.avatarUrl}/30.png` : undefined} alt={member.fullName} />
-                  <AvatarFallback className="text-xs">{(member.fullName || '?').charAt(0)}</AvatarFallback>
-                </Avatar>
-              ))}
-            </div>
-            <span className="text-sm text-muted-foreground">
-              {members.map(m => m.fullName).join(', ')}
-            </span>
-          </div>
-        )}
-      </CardHeader>
-      
-      <CardContent>
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full" style={{ gridTemplateColumns: `repeat(${5 + (permissions.canComment ? 1 : 0)}, 1fr)` }}>
-            <TabsTrigger value="details">
-              <FileText className="h-4 w-4 mr-1" />
-              <span className="hidden sm:inline">Details</span>
-            </TabsTrigger>
-            <TabsTrigger value="checklists">
-              <CheckSquare className="h-4 w-4 mr-1" />
-              <span className="hidden sm:inline">Checklists</span>
-            </TabsTrigger>
-            <TabsTrigger value="attachments">
-              <Paperclip className="h-4 w-4 mr-1" />
-              <span className="hidden sm:inline">Files</span>
-            </TabsTrigger>
-            <TabsTrigger value="comments">
-              <MessageSquare className="h-4 w-4 mr-1" />
-              <span className="hidden sm:inline">Comments</span>
-            </TabsTrigger>
-            <TabsTrigger value="activity">
-              <History className="h-4 w-4 mr-1" />
-              <span className="hidden sm:inline">Activity</span>
-            </TabsTrigger>
-            {permissions.canComment && (
-              <TabsTrigger value="actions">
-                <Calendar className="h-4 w-4 mr-1" />
-                <span className="hidden sm:inline">Actions</span>
-              </TabsTrigger>
-            )}
-          </TabsList>
-          
-          {/* ===== DETAILS TAB ===== */}
-          <TabsContent value="details" className="space-y-4 mt-4">
-            {/* Fix #4: Render description with full Trello markdown */}
-            <div className="space-y-2">
-              <h3 className="text-lg font-medium">Description</h3>
-              <div className="p-4 bg-muted rounded-md">
-                {cardData.desc ? (
-                  <TrelloMarkdown content={cardData.desc} />
-                ) : (
-                  <span className="text-muted-foreground">No description provided</span>
-                )}
-              </div>
-            </div>
-            
-            {cardData.due && (
-              <div className="space-y-2">
-                <h3 className="text-lg font-medium">Due Date</h3>
-                <div className="p-4 bg-muted rounded-md">
-                  {formatExactDate(cardData.due)}
-                  {cardData.dueComplete && <span className="ml-2 text-green-600 font-medium">✓ Complete</span>}
-                </div>
-              </div>
-            )}
-            
-            {cardData.labels && cardData.labels.length > 0 && (
-              <div className="space-y-2">
-                <h3 className="text-lg font-medium">Labels</h3>
+            {/* Members */}
+            {members.length > 0 && (
+              <section>
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Members</h3>
                 <div className="flex flex-wrap gap-2">
+                  {members.map(m => (
+                    <div key={m.id || m.username} className="flex items-center gap-1.5 bg-white border rounded-full pl-0.5 pr-3 py-0.5 shadow-sm">
+                      <Avatar className="h-6 w-6">
+                        <AvatarImage src={m.avatarUrl ? `${m.avatarUrl}/30.png` : undefined} />
+                        <AvatarFallback className="text-xs bg-[#0079bf] text-white">{(m.fullName || '?')[0]}</AvatarFallback>
+                      </Avatar>
+                      <span className="text-xs font-medium text-gray-700">{m.fullName}</span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Labels */}
+            {cardData.labels?.length > 0 && (
+              <section>
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Labels</h3>
+                <div className="flex flex-wrap gap-1.5">
                   {cardData.labels.map(label => (
-                    <div 
+                    <span
                       key={label.id}
-                      className="px-3 py-1 rounded-full text-sm font-medium"
-                      style={{ 
-                        backgroundColor: label.color ? `var(--trello-${label.color}, #ddd)` : '#ddd',
-                        color: label.color ? '#fff' : '#333'
-                      }}
+                      className="px-3 py-1 rounded text-xs font-semibold text-white"
+                      style={{ backgroundColor: TRELLO_COLORS[label.color] || '#8590A2' }}
                     >
                       {label.name || label.color}
-                    </div>
+                    </span>
                   ))}
                 </div>
-              </div>
+              </section>
             )}
 
-            {/* Fix #14: Card-level links */}
-            {cardLinks.length > 0 && (
-              <div className="space-y-2">
-                <h3 className="text-lg font-medium flex items-center gap-2">
-                  <Link2 className="h-5 w-5" /> Links
+            {/* Due date */}
+            {cardData.due && (
+              <section>
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Due Date</h3>
+                <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded text-sm font-medium ${
+                  cardData.dueComplete ? 'bg-green-100 text-green-700' :
+                  isOverdue ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'
+                }`}>
+                  <Calendar className="h-3.5 w-3.5" />
+                  {formatExactDate(cardData.due)}
+                  {cardData.dueComplete && <span className="ml-1">✓ Complete</span>}
+                  {isOverdue && !cardData.dueComplete && <span className="ml-1">Overdue</span>}
+                </span>
+              </section>
+            )}
+
+            {/* Description */}
+            <section>
+              <h3 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-1.5">
+                <FileText className="h-4 w-4" /> Description
+              </h3>
+              {cardData.desc ? (
+                <div className="bg-white border rounded-lg p-4 text-sm text-gray-700 leading-relaxed">
+                  <TrelloMarkdown content={cardData.desc} />
+                </div>
+              ) : (
+                <p className="text-sm text-gray-400 italic bg-white border rounded-lg p-4">No description added.</p>
+              )}
+            </section>
+
+            {/* Checklists */}
+            {checklists.map(cl => {
+              const total = cl.checkItems?.length || 0;
+              const done = cl.checkItems?.filter(i => i.state === 'complete').length || 0;
+              const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+              return (
+                <section key={cl.id}>
+                  <div className="flex items-center justify-between mb-1">
+                    <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
+                      <CheckSquare className="h-4 w-4" /> {cl.name}
+                    </h3>
+                    <span className="text-xs text-gray-500">{pct}%</span>
+                  </div>
+                  <Progress value={pct} className="h-2 mb-3" />
+                  <div className="space-y-1">
+                    {cl.checkItems?.sort((a, b) => a.pos - b.pos).map(item => (
+                      <div key={item.id} className="flex items-center gap-2.5 py-1 px-2 rounded hover:bg-gray-100">
+                        <div className={`h-4 w-4 rounded border-2 flex items-center justify-center flex-shrink-0 ${item.state === 'complete' ? 'bg-[#0079bf] border-[#0079bf]' : 'border-gray-400'}`}>
+                          {item.state === 'complete' && <span className="text-white text-[9px] font-bold">✓</span>}
+                        </div>
+                        <span className={`text-sm ${item.state === 'complete' ? 'line-through text-gray-400' : 'text-gray-700'}`}>{item.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              );
+            })}
+
+            {/* Attachments */}
+            {attachments.length > 0 && (
+              <section>
+                <h3 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-1.5">
+                  <Paperclip className="h-4 w-4" /> Attachments
                 </h3>
                 <div className="space-y-2">
-                  {cardLinks.map(link => (
-                    <div key={link.id} className="flex items-center gap-2 p-2 bg-muted rounded">
-                      <ExternalLink className="h-4 w-4 text-blue-500 flex-shrink-0" />
-                      <a href={link.url} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:text-blue-700 underline truncate">
-                        {link.name || renderUrl(link.url)}
-                      </a>
-                      <span className="text-xs text-muted-foreground ml-auto flex-shrink-0">
-                        {formatExactDate(link.date)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </TabsContent>
-
-          {/* ===== CHECKLISTS TAB — Fix #7 ===== */}
-          <TabsContent value="checklists" className="space-y-4 mt-4">
-            {checklists.length > 0 ? (
-              checklists.map(checklist => {
-                const total = checklist.checkItems?.length || 0;
-                const checked = checklist.checkItems?.filter(i => i.state === 'complete').length || 0;
-                const percent = total > 0 ? Math.round((checked / total) * 100) : 0;
-                
-                return (
-                  <div key={checklist.id} className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-medium flex items-center gap-2">
-                        <CheckSquare className="h-5 w-5" />
-                        {checklist.name}
-                      </h3>
-                      <span className="text-sm text-muted-foreground">{checked}/{total}</span>
-                    </div>
-                    <Progress value={percent} className="h-2" />
-                    <div className="space-y-1">
-                      {checklist.checkItems?.sort((a, b) => a.pos - b.pos).map(item => (
-                        <div key={item.id} className="flex items-center gap-2 p-1.5">
-                          <input 
-                            type="checkbox" 
-                            checked={item.state === 'complete'} 
-                            readOnly 
-                            className="h-4 w-4 rounded cursor-default"
-                          />
-                          <span className={item.state === 'complete' ? 'line-through text-muted-foreground' : ''}>
-                            {item.name}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                No checklists on this card
-              </div>
-            )}
-          </TabsContent>
-          
-          {/* ===== ATTACHMENTS TAB — Fix #11, #15 ===== */}
-          <TabsContent value="attachments" className="space-y-4 mt-4">
-            <div className="flex justify-between items-center">
-              <h3 className="text-lg font-medium">Attachments</h3>
-              {permissions.canUpload && (
-                <div>
-                  <input 
-                    type="file" 
-                    id="attachment-upload" 
-                    className="hidden"
-                    onChange={handleUploadAttachment}
-                    disabled={isSubmitting}
-                  />
-                  <Button 
-                    variant="outline" 
-                    onClick={() => document.getElementById('attachment-upload').click()}
-                    disabled={isSubmitting}
-                  >
-                    {isSubmitting ? (
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    ) : (
-                      <Upload className="h-4 w-4 mr-2" />
-                    )}
-                    Upload File
-                  </Button>
-                </div>
-              )}
-            </div>
-            
-            {attachments.length > 0 ? (
-              <div className="space-y-2">
-                {/* Fix #15: Already sorted chronologically by backend */}
-                {attachments.filter(a => a.isUpload !== false).map(attachment => (
-                  <div key={attachment.id} className="p-3 border rounded-md">
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <p className="font-medium">{attachment.name}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {attachment.bytes ? `${Math.round(attachment.bytes / 1024)} KB` : ''}
-                          {attachment.date && ` • ${formatExactDate(attachment.date)}`}
-                        </p>
+                  {attachments.map(att => (
+                    <div key={att.id} className="flex items-center gap-3 p-3 bg-white border rounded-lg hover:bg-gray-50">
+                      <div className="w-16 h-12 bg-gray-100 rounded flex items-center justify-center flex-shrink-0 overflow-hidden">
+                        {att.previews?.length > 0
+                          ? <img src={att.previews[att.previews.length - 1].url} alt="" className="w-full h-full object-cover" />
+                          : <Paperclip className="h-5 w-5 text-gray-400" />}
                       </div>
-                      {/* Fix #11: Make attachments fully clickable */}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-700 truncate">{att.name}</p>
+                        <p className="text-xs text-gray-400">{att.bytes ? `${Math.round(att.bytes / 1024)} KB · ` : ''}{formatExactDate(att.date)}</p>
+                      </div>
                       <Button variant="outline" size="sm" asChild>
-                        <a 
-                          href={sharedAccess.downloadAttachment(linkToken, attachment.id)}
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                        >
+                        <a href={sharedAccess.downloadAttachment(linkToken, att.id)} target="_blank" rel="noopener noreferrer">
                           Download
                         </a>
                       </Button>
                     </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                No attachments found
-              </div>
-            )}
-          </TabsContent>
-
-          {/* ===== COMMENTS TAB — Fix #4, #12, #16 ===== */}
-          <TabsContent value="comments" className="space-y-4 mt-4">
-            {/* Comment input at top for easy access */}
-            {permissions.canComment && (
-              <div className="space-y-2 p-4 border rounded-md bg-muted/50">
-                <textarea
-                  value={comment}
-                  onChange={(e) => setComment(e.target.value)}
-                  placeholder="Write a comment (Markdown supported)..."
-                  className="w-full p-3 border rounded-md min-h-[80px] bg-background resize-y"
-                  disabled={isSubmitting}
-                />
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-muted-foreground">
-                    Supports **bold**, *italic*, `code`, [links](url), lists
-                  </span>
-                  <Button 
-                    onClick={handleAddComment} 
-                    disabled={!comment.trim() || isSubmitting}
-                    size="sm"
-                  >
-                    {isSubmitting ? (
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    ) : (
-                      <MessageSquare className="h-4 w-4 mr-2" />
-                    )}
-                    Comment
-                  </Button>
+                  ))}
                 </div>
-              </div>
+              </section>
             )}
-            
-            {comments.length > 0 ? (
-              <div className="space-y-3">
-                {comments.map(c => (
-                  <div key={c.id} className="p-3 border rounded-md">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Avatar className="h-6 w-6">
-                        <AvatarImage src={c.memberCreator?.avatarUrl ? `${c.memberCreator.avatarUrl}/30.png` : undefined} />
-                        <AvatarFallback className="text-xs">{(c.memberCreator?.fullName || '?').charAt(0)}</AvatarFallback>
-                      </Avatar>
-                      <span className="font-medium text-sm">{c.memberCreator?.fullName || 'Unknown'}</span>
-                      {/* Fix #12: Exact date/time */}
-                      <span className="text-xs text-muted-foreground ml-auto">
-                        {formatExactDate(c.date)}
-                      </span>
-                    </div>
-                    {/* Fix #4 & #16: Render comment with full markdown */}
-                    <div className="text-sm">
-                      <TrelloMarkdown content={c.data?.text || ''} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                No comments yet
-              </div>
-            )}
-          </TabsContent>
 
-          {/* ===== ACTIVITY TAB — Fix #13 ===== */}
-          <TabsContent value="activity" className="space-y-2 mt-4">
-            {actions.length > 0 ? (
-              <div className="space-y-1">
-                {actions.map(action => (
-                  <div key={action.id} className="flex items-start gap-2 p-2 text-sm border-b last:border-0">
-                    <Avatar className="h-5 w-5 mt-0.5 flex-shrink-0">
-                      <AvatarImage src={action.memberCreator?.avatarUrl ? `${action.memberCreator.avatarUrl}/30.png` : undefined} />
-                      <AvatarFallback className="text-[10px]">{(action.memberCreator?.fullName || '?').charAt(0)}</AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <span>{describeAction(action)}</span>
-                      {action.data?.text && (
-                        <div className="mt-1 text-xs text-muted-foreground truncate">
-                          {action.data.text.substring(0, 100)}{action.data.text.length > 100 ? '...' : ''}
-                        </div>
-                      )}
+            {/* Links */}
+            {cardLinks.length > 0 && (
+              <section>
+                <h3 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-1.5">
+                  <Link2 className="h-4 w-4" /> Links
+                </h3>
+                <div className="space-y-1">
+                  {cardLinks.map(link => (
+                    <div key={link.id} className="flex items-center gap-2 p-2 bg-white border rounded hover:bg-gray-50">
+                      <ExternalLink className="h-3.5 w-3.5 text-blue-500 flex-shrink-0" />
+                      <a href={link.url} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-500 hover:underline truncate flex-1">
+                        {link.name || renderUrl(link.url)}
+                      </a>
+                      <span className="text-xs text-gray-400 flex-shrink-0">{formatExactDate(link.date)}</span>
                     </div>
-                    <span className="text-xs text-muted-foreground flex-shrink-0">
-                      {formatExactDate(action.date)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                No activity history
-              </div>
+                  ))}
+                </div>
+              </section>
             )}
-          </TabsContent>
 
-          {/* ===== ACTIONS TAB (due date) ===== */}
-          {permissions.canComment && (
-            <TabsContent value="actions" className="space-y-6 mt-4">
-              {permissions.canSetDueDate && (
-                <div className="space-y-4">
-                  <h3 className="text-lg font-medium flex items-center">
-                    <Calendar className="h-5 w-5 mr-2" />
-                    Update Due Date
-                  </h3>
-                  <div className="space-y-2">
-                    <input
-                      type="datetime-local"
-                      value={newDueDate}
-                      onChange={(e) => setNewDueDate(e.target.value)}
-                      className="w-full p-3 border rounded-md"
-                      disabled={isSubmitting}
+            {/* Activity + Comments */}
+            <section>
+              <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-1.5">
+                <History className="h-4 w-4" /> Activity
+              </h3>
+
+              {/* Add comment */}
+              {permissions.canComment && (
+                <div className="flex gap-3 mb-5">
+                  <Avatar className="h-8 w-8 flex-shrink-0">
+                    <AvatarFallback className="bg-[#0079bf] text-white text-xs">
+                      {(clientName || '?')[0].toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1">
+                    <textarea
+                      value={comment}
+                      onChange={e => setComment(e.target.value)}
+                      placeholder="Write a comment…"
+                      className="w-full p-3 border rounded-lg text-sm resize-none min-h-[72px] focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white"
                     />
-                    <Button 
-                      onClick={handleUpdateDueDate} 
-                      disabled={!newDueDate || isSubmitting}
-                    >
-                      {isSubmitting ? (
-                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                      ) : (
-                        <Calendar className="h-4 w-4 mr-2" />
-                      )}
-                      Update Due Date
-                    </Button>
+                    {comment.trim() && (
+                      <Button size="sm" onClick={handleAddComment} disabled={isSubmitting} className="mt-1.5 bg-[#0079bf] hover:bg-[#005f99]">
+                        {isSubmitting ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Save'}
+                      </Button>
+                    )}
                   </div>
                 </div>
               )}
-            </TabsContent>
-          )}
-        </Tabs>
-      </CardContent>
-    </Card>
+
+              {/* Comments list */}
+              <div className="space-y-3">
+                {comments.map(c => (
+                  <div key={c.id} className="flex gap-3">
+                    <Avatar className="h-8 w-8 flex-shrink-0">
+                      <AvatarImage src={c.memberCreator?.avatarUrl ? `${c.memberCreator.avatarUrl}/30.png` : undefined} />
+                      <AvatarFallback className="text-xs bg-gray-300">{(c.memberCreator?.fullName || '?')[0]}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1">
+                      <div className="flex items-baseline gap-2 mb-1">
+                        <span className="text-sm font-semibold text-gray-700">{c.memberCreator?.fullName || 'Unknown'}</span>
+                        <span className="text-xs text-gray-400">{formatExactDate(c.date)}</span>
+                      </div>
+                      <div className="p-3 bg-white border rounded-lg text-sm text-gray-700">
+                        <TrelloMarkdown content={c.data?.text || ''} />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Action history */}
+              {actions.length > 0 && (
+                <div className="mt-4 space-y-1 border-t pt-4">
+                  {actions.map(action => (
+                    <div key={action.id} className="flex items-start gap-2 py-1.5 text-sm">
+                      <Avatar className="h-6 w-6 flex-shrink-0">
+                        <AvatarImage src={action.memberCreator?.avatarUrl ? `${action.memberCreator.avatarUrl}/30.png` : undefined} />
+                        <AvatarFallback className="text-[10px] bg-gray-200">{(action.memberCreator?.fullName || '?')[0]}</AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <span className="text-gray-600">{describeAction(action)}</span>
+                        {action.data?.text && (
+                          <p className="text-xs text-gray-400 truncate mt-0.5">{action.data.text.substring(0, 100)}</p>
+                        )}
+                      </div>
+                      <span className="text-xs text-gray-400 flex-shrink-0">{formatExactDate(action.date)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          </div>
+
+          {/* ── RIGHT: sidebar ── */}
+          <div className="w-full lg:w-44 shrink-0 space-y-3">
+
+            {permissions.canComment && (
+              <div>
+                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Your Name</h4>
+                <input
+                  type="text"
+                  value={clientName}
+                  onChange={e => handleNameChange(e.target.value)}
+                  placeholder="Enter your name"
+                  className="w-full h-8 px-2 text-sm border rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-300"
+                />
+              </div>
+            )}
+
+            {permissions.canUpload && (
+              <div>
+                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Add Attachment</h4>
+                <input type="file" id="att-upload" className="hidden" onChange={handleUploadAttachment} />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full justify-start text-xs"
+                  onClick={() => document.getElementById('att-upload').click()}
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? <Loader2 className="h-3 w-3 animate-spin mr-1.5" /> : <Upload className="h-3 w-3 mr-1.5" />}
+                  Upload File
+                </Button>
+              </div>
+            )}
+
+            {permissions.canSetDueDate && (
+              <div>
+                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Set Due Date</h4>
+                <input
+                  type="datetime-local"
+                  value={newDueDate}
+                  onChange={e => setNewDueDate(e.target.value)}
+                  className="w-full text-xs border rounded-md p-1.5 mb-1.5 bg-white"
+                />
+                <Button size="sm" className="w-full text-xs" onClick={handleUpdateDueDate} disabled={!newDueDate || isSubmitting}>
+                  Update
+                </Button>
+              </div>
+            )}
+
+            <div className="border-t pt-3">
+              <Button variant="ghost" size="sm" className="w-full text-xs text-gray-500 justify-start" onClick={fetchCardData}>
+                <RefreshCw className="h-3 w-3 mr-1.5" /> Refresh
+              </Button>
+              <p className="text-[10px] text-gray-400 text-center mt-1">
+                {format(lastRefreshed, 'h:mm a')}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <p className="text-center text-xs text-gray-400 mt-8">Shared via ShareT</p>
+      </div>
+    </div>
   );
 };
 

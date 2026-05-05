@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -13,8 +13,24 @@ const NewShareForm = ({ shareType, setShareType, cardCount, setCardCount, credit
   const [showPassword, setShowPassword] = useState(false);
   const [selectedList, setSelectedList] = useState(null);
   const [generatedUrls, setGeneratedUrls] = useState(null);
+  const [selectedWorkspace, setSelectedWorkspace] = useState(null);
+  const [boardSearch, setBoardSearch] = useState('');
   const [selectedBoard, setSelectedBoard] = useState(null);
   const [selectedCard, setSelectedCard] = useState(null);
+
+  const workspaces = useMemo(() => {
+    if (!trelloData?.boards) return [];
+    const seen = new Set();
+    trelloData.boards.forEach(b => seen.add(b.organizationName || 'Personal'));
+    return [...seen];
+  }, [trelloData]);
+
+  const filteredBoards = useMemo(() => {
+    if (!trelloData?.boards) return [];
+    return trelloData.boards
+      .filter(b => !selectedWorkspace || (b.organizationName || 'Personal') === selectedWorkspace)
+      .filter(b => !boardSearch.trim() || b.name.toLowerCase().includes(boardSearch.toLowerCase()));
+  }, [trelloData, selectedWorkspace, boardSearch]);
   const [cardUrl, setCardUrl] = useState('');
   const [expiryDate, setExpiryDate] = useState('');
   const [password, setPassword] = useState('');
@@ -160,31 +176,66 @@ const NewShareForm = ({ shareType, setShareType, cardCount, setCardCount, credit
             </Select>
           </div>
           <div>
-            <Label htmlFor="boardSelect">Board</Label>
+            <Label htmlFor="workspaceSelect">Workspace</Label>
             <Select
-              onValueChange={(boardId) => {
-                const board = trelloData?.boards?.find(b => b.id === boardId) || null;
-                setSelectedBoard(board);
+              onValueChange={(ws) => {
+                setSelectedWorkspace(ws === '__all__' ? null : ws);
+                setBoardSearch('');
+                setSelectedBoard(null);
                 setSelectedCard(null);
                 setSelectedList(null);
               }}
             >
-              <SelectTrigger id="boardSelect" className="h-10">
-                <SelectValue placeholder={trelloData ? 'Select a board' : 'Connect Trello first'} />
+              <SelectTrigger id="workspaceSelect" className="h-10">
+                <SelectValue placeholder={trelloData ? 'All workspaces' : 'Connect Trello first'} />
               </SelectTrigger>
               <SelectContent>
-                {trelloData?.boards?.length > 0 ? (
-                  trelloData.boards.map(board => (
-                    <SelectItem key={board.id} value={board.id}>{board.name}</SelectItem>
-                  ))
-                ) : (
-                  <SelectItem disabled value="none">
-                    {trelloData ? 'Loading boards...' : 'Connect Trello first'}
-                  </SelectItem>
-                )}
+                <SelectItem value="__all__">All workspaces</SelectItem>
+                {workspaces.map(ws => (
+                  <SelectItem key={ws} value={ws}>{ws}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
+        </div>
+
+        <div>
+          <Label htmlFor="boardSearch">Search Board</Label>
+          <Input
+            id="boardSearch"
+            placeholder="Type to search boards..."
+            value={boardSearch}
+            onChange={e => setBoardSearch(e.target.value)}
+            className="h-10"
+            disabled={!trelloData}
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="boardSelect">Board</Label>
+          <Select
+            onValueChange={(boardId) => {
+              const board = filteredBoards.find(b => b.id === boardId) || null;
+              setSelectedBoard(board);
+              setSelectedCard(null);
+              setSelectedList(null);
+            }}
+          >
+            <SelectTrigger id="boardSelect" className="h-10">
+              <SelectValue placeholder={trelloData ? (filteredBoards.length ? 'Select a board' : 'No matching boards') : 'Connect Trello first'} />
+            </SelectTrigger>
+            <SelectContent>
+              {filteredBoards.length > 0 ? (
+                filteredBoards.map(board => (
+                  <SelectItem key={board.id} value={board.id}>{board.name}</SelectItem>
+                ))
+              ) : (
+                <SelectItem disabled value="none">
+                  {trelloData ? (boardSearch ? 'No boards match your search' : 'Loading boards...') : 'Connect Trello first'}
+                </SelectItem>
+              )}
+            </SelectContent>
+          </Select>
         </div>
 
         {shareType === 'card' && (
