@@ -281,7 +281,7 @@ exports.getAttachments = async (req, res) => {
   }
 };
 
-// Download attachment — Fix #11: Proxy via backend with auth
+// Download attachment — proxy file through backend so non-Trello users can download
 exports.downloadAttachment = async (req, res) => {
   try {
     const share = await SharedLink.findByShareId(req.params.shareId);
@@ -301,8 +301,9 @@ exports.downloadAttachment = async (req, res) => {
       });
     }
 
-    const url = `${TRELLO_API_BASE}/cards/${share.cardId}/attachments/${req.params.attachmentId}?key=${process.env.TRELLO_API_KEY}&token=${connection.trelloToken}`;
-    const attachment = await fetchJSON(url);
+    // Get attachment metadata (includes direct file URL)
+    const metaUrl = `${TRELLO_API_BASE}/cards/${share.cardId}/attachments/${req.params.attachmentId}?key=${process.env.TRELLO_API_KEY}&token=${connection.trelloToken}`;
+    const attachment = await fetchJSON(metaUrl);
 
     // Log download
     await AccessLog.create({
@@ -312,8 +313,31 @@ exports.downloadAttachment = async (req, res) => {
       action: 'download'
     });
 
-    // Redirect to attachment URL
-    res.redirect(attachment.url);
+    // Fetch the actual file from Trello using the owner's token as auth header
+    const fileResponse = await fetch(attachment.url, {
+      headers: {
+        'Authorization': `OAuth oauth_consumer_key="${process.env.TRELLO_API_KEY}", oauth_token="${connection.trelloToken}"`
+      }
+    });
+
+    if (!fileResponse.ok) {
+      return res.status(502).json({
+        success: false,
+        message: 'Failed to fetch file from Trello'
+      });
+    }
+
+    // Pass content-type and force browser download with filename
+    const contentType = fileResponse.headers.get('content-type') || 'application/octet-stream';
+    const fileName = attachment.name || 'attachment';
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(fileName)}"`);
+    const contentLength = fileResponse.headers.get('content-length');
+    if (contentLength) res.setHeader('Content-Length', contentLength);
+
+    // Stream file bytes directly to client — no temp storage
+    const { Readable } = require('stream');
+    Readable.fromWeb(fileResponse.body).pipe(res);
   } catch (error) {
     console.error('Download attachment error:', error);
     res.status(500).json({
