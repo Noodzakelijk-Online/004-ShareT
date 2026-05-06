@@ -507,7 +507,7 @@ const SharedCardView = ({ linkToken }) => {
                       value={comment}
                       onChange={e => setComment(e.target.value)}
                       placeholder="Write a comment…"
-                      className="w-full p-3 border rounded-lg text-sm resize-none min-h-[72px] focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white"
+                      className="w-full p-3 border rounded-lg text-sm text-gray-800 placeholder:text-gray-400 resize-none min-h-[72px] focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white"
                     />
                     {comment.trim() && (
                       <Button size="sm" onClick={handleAddComment} disabled={isSubmitting} className="mt-1.5 bg-[#0079bf] hover:bg-[#005f99]">
@@ -573,7 +573,7 @@ const SharedCardView = ({ linkToken }) => {
                   value={clientName}
                   onChange={e => handleNameChange(e.target.value)}
                   placeholder="Enter your name"
-                  className="w-full h-8 px-2 text-sm border rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-300"
+                  className="w-full h-8 px-2 text-sm text-gray-800 placeholder:text-gray-400 border rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-300"
                 />
               </div>
             )}
@@ -602,7 +602,7 @@ const SharedCardView = ({ linkToken }) => {
                   type="datetime-local"
                   value={newDueDate}
                   onChange={e => setNewDueDate(e.target.value)}
-                  className="w-full text-xs border rounded-md p-1.5 mb-1.5 bg-white"
+                  className="w-full text-xs text-gray-800 border rounded-md p-1.5 mb-1.5 bg-white"
                 />
                 <Button size="sm" className="w-full text-xs" onClick={handleUpdateDueDate} disabled={!newDueDate || isSubmitting}>
                   Update
