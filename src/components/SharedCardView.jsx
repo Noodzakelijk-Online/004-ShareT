@@ -198,6 +198,11 @@ const SharedCardView = ({ linkToken }) => {
   // Fix #16: Comment with full markdown support
   const handleAddComment = async () => {
     if (!comment.trim()) return;
+    if (!clientName.trim()) {
+      toast.error('Please enter your name before commenting');
+      document.getElementById('commenter-name')?.focus();
+      return;
+    }
     
     setIsSubmitting(true);
     
@@ -510,7 +515,20 @@ const SharedCardView = ({ linkToken }) => {
                       {(clientName || '?')[0].toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="flex-1">
+                  <div className="flex-1 space-y-2">
+                    <input
+                      id="commenter-name"
+                      type="text"
+                      value={clientName}
+                      onChange={e => handleNameChange(e.target.value)}
+                      placeholder="Your name (required)"
+                      className={`w-full h-8 px-3 text-sm text-gray-800 placeholder:text-gray-400 border rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-300 ${
+                        !clientName.trim() ? 'border-orange-300' : 'border-gray-300'
+                      }`}
+                    />
+                    {!clientName.trim() && (
+                      <p className="text-xs text-orange-500">Enter your name so others know who commented</p>
+                    )}
                     <textarea
                       value={comment}
                       onChange={e => setComment(e.target.value)}
@@ -518,9 +536,20 @@ const SharedCardView = ({ linkToken }) => {
                       className="w-full p-3 border rounded-lg text-sm text-gray-800 placeholder:text-gray-400 resize-none min-h-[72px] focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white"
                     />
                     {comment.trim() && (
-                      <Button size="sm" onClick={handleAddComment} disabled={isSubmitting} className="mt-1.5 bg-[#0079bf] hover:bg-[#005f99]">
-                        {isSubmitting ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Save'}
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          onClick={handleAddComment}
+                          disabled={isSubmitting || !clientName.trim()}
+                          className="bg-[#0079bf] hover:bg-[#005f99] disabled:opacity-50"
+                          title={!clientName.trim() ? 'Enter your name first' : ''}
+                        >
+                          {isSubmitting ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Save'}
+                        </Button>
+                        {!clientName.trim() && (
+                          <span className="text-xs text-orange-500">Enter your name first</span>
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>
