@@ -83,7 +83,14 @@ const PreviousLinks = ({ onShowQRCode }) => {
         links.map((link) => (
           <div key={link._id || link.shareId} className="flex justify-between items-center p-3 bg-secondary rounded-md">
             <div className="min-w-0 flex-1">
-              <h3 className="font-semibold truncate">{link.cardName || 'Unnamed Card'}</h3>
+              <a
+                href={`${window.location.origin}/shared/${link.shareId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-semibold truncate hover:underline text-blue-600 hover:text-blue-800 block"
+              >
+                {link.cardName || 'Unnamed Card'}
+              </a>
               <p className="text-sm text-muted-foreground">
                 {link.boardName && `${link.boardName} • `}
                 {link.isActive ? '🟢 Active' : '🔴 Inactive'}

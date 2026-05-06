@@ -1,5 +1,5 @@
 
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import TrelloConnect from '../components/TrelloConnect';
 import { useNavigate } from 'react-router-dom';
@@ -9,7 +9,6 @@ import { LogOut, BookOpen } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useCredits } from '../hooks/useCredits';
-import { PaymentDialog } from '../components/PaymentDialog';
 import QRCode from 'qrcode.react';
 import NewShareForm from '../components/NewShareForm';
 import PreviousLinks from '../components/PreviousLinks';
@@ -23,27 +22,13 @@ const App = () => {
   const { credits, freeSharesLeft, updateCredits } = useCredits();
   const [shareType, setShareType] = useState("card");
   const [cardCount, setCardCount] = useState(1);
-  const [createdLinks, setCreatedLinks] = useState(0);
   const [trelloData, setTrelloData] = useState(null);
   const [showQRCode, setShowQRCode] = useState(false);
   const [currentShareLink, setCurrentShareLink] = useState('');
   const [showApiDocs, setShowApiDocs] = useState(false);
   const { toast } = useToast();
 
-  const cost = useMemo(() => {
-    if (freeSharesLeft > 0) return 0;
-    return shareType === "card" ? 1 : Math.max(1, cardCount - 1);
-  }, [shareType, cardCount, freeSharesLeft]);
-
-  const displayCredits = credits - createdLinks;
-
-  const handleCreateLink = () => {
-    if (freeSharesLeft > 0) {
-      updateCredits(credits, freeSharesLeft - 1);
-    } else {
-      setCreatedLinks(prevLinks => prevLinks + cost);
-    }
-  };
+  const handleCreateLink = () => {};
 
   const handleShowQRCode = (link) => {
     setCurrentShareLink(link);
@@ -94,15 +79,6 @@ console.log(JSON.stringify(trelloData, null, 2));
                   </Button>
                 </div>
               )}
-              {displayCredits > 0 ? (
-                <span>Credits: {displayCredits.toFixed(2)} (-{createdLinks})</span>
-              ) : (
-                <PaymentDialog onPaymentSuccess={(newCredits) => {
-                  updateCredits(newCredits, freeSharesLeft);
-                  setCreatedLinks(0);
-                }} />
-              )}
-              <span>Free shares left: {freeSharesLeft}</span>
             </div>
           </CardHeader>
           <CardContent>
@@ -118,7 +94,7 @@ console.log(JSON.stringify(trelloData, null, 2));
                     setShareType={setShareType}
                     cardCount={cardCount}
                     setCardCount={setCardCount}
-                    credits={displayCredits}
+                    credits={Infinity}
                     freeSharesLeft={freeSharesLeft}
                     updateCredits={updateCredits}
                     onCreateLink={handleCreateLink}

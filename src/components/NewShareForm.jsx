@@ -38,23 +38,8 @@ const NewShareForm = ({ shareType, setShareType, cardCount, setCardCount, credit
   // Fix #9: Green checkmark indicator instead of obstructive popup
   const [showSuccess, setShowSuccess] = useState(false);
 
-  const calculateCost = () => {
-    if (freeSharesLeft > 0) return 0;
-    return shareType === "card" ? 1 : Math.max(1, cardCount - 1);
-  };
-
   // Fix #2: Create share link via API (persistent storage), not mock URLs
   const handleCreateShare = async () => {
-    const cost = calculateCost();
-    if (cost > credits) {
-      uiToast({
-        title: "Insufficient credits",
-        description: "Please purchase more credits to create this share.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     // Validate expiry date
     if (expiryDate && new Date(expiryDate) <= new Date()) {
       uiToast({
