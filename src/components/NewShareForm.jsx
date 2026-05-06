@@ -92,6 +92,7 @@ const NewShareForm = ({ shareType, setShareType, cardCount, setCardCount, credit
             canDownload: true,
             canSetDueDate: false
           },
+          password: password || null,
           expiresAt: expiryDate || null
         });
 

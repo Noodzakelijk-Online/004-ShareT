@@ -265,6 +265,7 @@ const SharedLink = {
         canSetDueDate: data.permissions?.canSetDueDate ?? false
       },
       allowedEmails: data.allowedEmails || [],
+      password: data.password ? await bcrypt.hash(data.password, 10) : null,
       expiresAt: data.expiresAt || null,
       isActive: true,
       accessCount: 0,

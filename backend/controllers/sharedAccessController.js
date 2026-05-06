@@ -16,6 +16,7 @@
  */
 
 const { SharedLink, TrelloConnection, AccessLog, EmailVerification } = require('../db/pouchdb');
+const bcrypt = require('bcryptjs');
 const multer = require('multer');
 const FormData = require('form-data');
 
@@ -107,6 +108,7 @@ exports.getSharedCard = async (req, res) => {
         trelloCardName: share.cardName,
         trelloBoardName: share.boardName,
         requiresEmail: share.allowedEmails && share.allowedEmails.length > 0,
+        requiresPassword: !!share.password,
         permissions: share.permissions
       },
       data: {
@@ -621,5 +623,31 @@ exports.getSharedLinks = async (req, res) => {
   } catch (error) {
     console.error('Get shared links error:', error);
     res.status(500).json({ success: false, message: 'Error fetching links' });
+  }
+};
+
+// Verify password for password-protected shared links
+exports.verifyPassword = async (req, res) => {
+  try {
+    const { password } = req.body;
+    const share = await SharedLink.findByShareId(req.params.shareId);
+
+    if (!share || !share.isActive) {
+      return res.status(404).json({ success: false, message: 'Share not found' });
+    }
+
+    if (!share.password) {
+      return res.json({ success: true, message: 'No password required' });
+    }
+
+    const match = await bcrypt.compare(password || '', share.password);
+    if (!match) {
+      return res.status(401).json({ success: false, message: 'Incorrect secret' });
+    }
+
+    res.json({ success: true, message: 'Access granted' });
+  } catch (error) {
+    console.error('Verify password error:', error);
+    res.status(500).json({ success: false, message: 'Error verifying secret' });
   }
 };

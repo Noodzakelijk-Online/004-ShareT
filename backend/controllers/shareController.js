@@ -43,7 +43,7 @@ exports.getShares = async (req, res) => {
 // Create new share
 exports.createShare = async (req, res) => {
   try {
-    const { cardId, cardName, boardId, boardName, permissions, allowedEmails, expiresAt } = req.body;
+    const { cardId, cardName, boardId, boardName, permissions, allowedEmails, expiresAt, password } = req.body;
     const userId = req.user._id || req.user.id;
 
     const share = await SharedLink.create({
@@ -60,6 +60,7 @@ exports.createShare = async (req, res) => {
         canSetDueDate: false
       },
       allowedEmails: allowedEmails || [],
+      password: password || null,
       expiresAt: expiresAt || null
     });
 

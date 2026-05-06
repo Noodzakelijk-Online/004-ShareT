@@ -11,6 +11,7 @@ const sharedAccessController = require('../controllers/sharedAccessController');
 router.get('/:shareId', sharedAccessController.getSharedCard);
 router.post('/:shareId/verify-email', sharedAccessController.verifyEmail);
 router.post('/:shareId/confirm-verification', sharedAccessController.confirmVerification);
+router.post('/:shareId/verify-password', sharedAccessController.verifyPassword);
 
 // Attachments
 router.get('/:shareId/attachments', sharedAccessController.getAttachments);

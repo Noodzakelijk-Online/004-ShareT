@@ -16,6 +16,10 @@ const SharedLinkAccess = ({ linkToken }) => {
   const [isVerifying, setIsVerifying] = useState(false);
   const [accessGranted, setAccessGranted] = useState(false);
   const [error, setError] = useState(null);
+  const [secretInput, setSecretInput] = useState('');
+  const [secretError, setSecretError] = useState('');
+  const [checkingSecret, setCheckingSecret] = useState(false);
+  const [secretPassed, setSecretPassed] = useState(false);
   
   const API_URL = import.meta.env.VITE_API_URL || '/api';
   
@@ -27,17 +31,14 @@ const SharedLinkAccess = ({ linkToken }) => {
   const fetchLinkInfo = async () => {
     setIsLoading(true);
     setError(null);
-    
     try {
       const response = await axios.get(`${API_URL}/shared-access/${linkToken}`);
-      
       if (response.data.linkInfo) {
         const info = response.data.linkInfo;
         setLinkInfo(info);
-        // Skip email verification if no email restriction
-        if (!info.requiresEmail) {
+        // Skip all gates if no restrictions
+        if (!info.requiresEmail && !info.requiresPassword) {
           window.location.href = `/shared/${linkToken}/card`;
-          return;
         }
       } else {
         throw new Error('Invalid link or link information not found');
@@ -136,6 +137,26 @@ const SharedLinkAccess = ({ linkToken }) => {
     );
   }
   
+  const handleVerifySecret = async () => {
+    setCheckingSecret(true);
+    setSecretError('');
+    try {
+      const response = await axios.post(`${API_URL}/shared-access/${linkToken}/verify-password`, {
+        password: secretInput
+      });
+      if (response.data.success) {
+        setSecretPassed(true);
+        if (!linkInfo.requiresEmail) {
+          window.location.href = `/shared/${linkToken}/card`;
+        }
+      }
+    } catch (err) {
+      setSecretError(err.response?.data?.message || 'Incorrect secret, please try again.');
+    } finally {
+      setCheckingSecret(false);
+    }
+  };
+
   if (!linkInfo) {
     return (
       <Card className="w-full max-w-md mx-auto">
@@ -152,6 +173,40 @@ const SharedLinkAccess = ({ linkToken }) => {
     );
   }
   
+  // Password gate — shown before email gate
+  if (linkInfo?.requiresPassword && !secretPassed) {
+    return (
+      <Card className="w-full max-w-md mx-auto">
+        <CardHeader>
+          <CardTitle>Enter Secret</CardTitle>
+          <CardDescription>
+            This link is protected. Please enter the secret to continue.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label htmlFor="secret">Secret</Label>
+            <Input
+              id="secret"
+              type="password"
+              value={secretInput}
+              onChange={e => { setSecretInput(e.target.value); setSecretError(''); }}
+              onKeyDown={e => e.key === 'Enter' && handleVerifySecret()}
+              placeholder="Enter secret…"
+              className="mt-1"
+              disabled={checkingSecret}
+              autoFocus
+            />
+            {secretError && <p className="text-sm text-destructive mt-1">{secretError}</p>}
+          </div>
+          <Button onClick={handleVerifySecret} disabled={!secretInput || checkingSecret} className="w-full">
+            {checkingSecret ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Checking…</> : 'Continue'}
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className="w-full max-w-md mx-auto">
       <CardHeader>
