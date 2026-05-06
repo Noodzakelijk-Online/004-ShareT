@@ -273,6 +273,14 @@ const SharedCardView = ({ linkToken }) => {
     }
   };
 
+  // Parse **AuthorName**: text format written by ShareT to extract the real commenter name
+  const parseCommentAuthor = (text) => {
+    if (!text) return { author: null, body: '' };
+    const match = text.match(/^\*\*(.+?)\*\*: ([\s\S]*)$/);
+    if (match) return { author: match[1], body: match[2] };
+    return { author: null, body: text };
+  };
+
   // Describe action type for history
   const describeAction = (action) => {
     const type = action.type;
@@ -520,23 +528,28 @@ const SharedCardView = ({ linkToken }) => {
 
               {/* Comments list */}
               <div className="space-y-3">
-                {comments.map(c => (
-                  <div key={c.id} className="flex gap-3">
-                    <Avatar className="h-8 w-8 flex-shrink-0">
-                      <AvatarImage src={c.memberCreator?.avatarUrl ? `${c.memberCreator.avatarUrl}/30.png` : undefined} />
-                      <AvatarFallback className="text-xs bg-gray-300">{(c.memberCreator?.fullName || '?')[0]}</AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                      <div className="flex items-baseline gap-2 mb-1">
-                        <span className="text-sm font-semibold text-gray-700">{c.memberCreator?.fullName || 'Unknown'}</span>
-                        <span className="text-xs text-gray-400">{formatExactDate(c.date)}</span>
-                      </div>
-                      <div className="p-3 bg-white border rounded-lg text-sm text-gray-700">
-                        <TrelloMarkdown content={c.data?.text || ''} />
+                {comments.map(c => {
+                  const { author, body } = parseCommentAuthor(c.data?.text || '');
+                  const displayName = author || c.memberCreator?.fullName || 'Unknown';
+                  const isShareTComment = !!author;
+                  return (
+                    <div key={c.id} className="flex gap-3">
+                      <Avatar className="h-8 w-8 flex-shrink-0">
+                        {!isShareTComment && <AvatarImage src={c.memberCreator?.avatarUrl ? `${c.memberCreator.avatarUrl}/30.png` : undefined} />}
+                        <AvatarFallback className="text-xs bg-gray-300">{displayName[0].toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <div className="flex items-baseline gap-2 mb-1">
+                          <span className="text-sm font-semibold text-gray-700">{displayName}</span>
+                          <span className="text-xs text-gray-400">{formatExactDate(c.date)}</span>
+                        </div>
+                        <div className="p-3 bg-white border rounded-lg text-sm text-gray-700">
+                          <TrelloMarkdown content={body} />
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               {/* Action history */}
