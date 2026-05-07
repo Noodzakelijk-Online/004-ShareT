@@ -61,7 +61,7 @@ exports.register = async (req, res) => {
     if (existingUser) {
       return res.status(400).json({
         success: false,
-        message: 'User with this email already exists'
+        message: 'This account already exists. Please log in or reset your password.'
       });
     }
 
@@ -404,21 +404,42 @@ exports.forgotPassword = async (req, res) => {
     const frontendUrl = process.env.PUBLIC_URL || process.env.FRONTEND_URL || 'http://localhost:5005';
     const resetUrl = `${frontendUrl}/reset-password/${resetToken}`;
 
-    const transporter = createMailTransporter();
-    await transporter.sendMail({
-      from: process.env.EMAIL_FROM || 'ShareT <noreply@sharet.app>',
-      to: user.email,
-      subject: 'Password Reset Request - ShareT',
-      html: `<p>You requested a password reset.</p>
-             <p>Click the link below to reset your password (valid for 10 minutes):</p>
-             <a href="${resetUrl}">${resetUrl}</a>
-             <p>If you did not request this, ignore this email.</p>`
-    });
+    // Always log the reset URL — useful when email is not configured
+    console.log(`\n[ShareT] Password reset link for ${user.email}:\n${resetUrl}\n`);
 
-    res.json({ success: true, message: 'If that email exists, a reset link has been sent' });
+    if (!process.env.EMAIL_USER) {
+      // Email not configured — return link directly so self-hosted users can reset
+      return res.json({
+        success: true,
+        message: 'Email not configured on this server. Use the reset link below.',
+        resetUrl
+      });
+    }
+
+    try {
+      const transporter = createMailTransporter();
+      await transporter.sendMail({
+        from: process.env.EMAIL_FROM || 'ShareT <noreply@sharet.app>',
+        to: user.email,
+        subject: 'Password Reset Request - ShareT',
+        html: `<p>You requested a password reset.</p>
+               <p>Click the link below to reset your password (valid for 10 minutes):</p>
+               <a href="${resetUrl}">${resetUrl}</a>
+               <p>If you did not request this, ignore this email.</p>`
+      });
+      res.json({ success: true, message: 'Password reset link sent to your email.' });
+    } catch (emailError) {
+      console.error('Email send failed:', emailError.message);
+      // Email failed — return the link directly so the user is not locked out
+      res.json({
+        success: true,
+        message: 'Email delivery failed. Use the reset link below.',
+        resetUrl
+      });
+    }
   } catch (error) {
     console.error('Forgot password error:', error);
-    res.status(500).json({ success: false, message: 'Error sending reset email', error: error.message });
+    res.status(500).json({ success: false, message: 'Error processing password reset' });
   }
 };
 

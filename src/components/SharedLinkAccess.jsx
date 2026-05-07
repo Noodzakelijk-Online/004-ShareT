@@ -145,6 +145,7 @@ const SharedLinkAccess = ({ linkToken }) => {
         password: secretInput
       });
       if (response.data.success) {
+        sessionStorage.setItem(`shareT_pw_${linkToken}`, '1');
         setSecretPassed(true);
         if (!linkInfo.requiresEmail) {
           window.location.href = `/shared/${linkToken}/card`;

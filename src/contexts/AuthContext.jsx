@@ -170,7 +170,9 @@ export const AuthProvider = ({ children }) => {
       return response;
     } catch (error) {
       const errorMessage = error.message || 'Failed to send reset email';
-      toast.error(errorMessage);
+      if (!error.message?.includes('reset link')) {
+        toast.error(errorMessage);
+      }
       throw error;
     }
   };

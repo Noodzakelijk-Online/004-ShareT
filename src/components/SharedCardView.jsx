@@ -65,8 +65,9 @@ const SharedCardView = ({ linkToken }) => {
   const [newDueDate, setNewDueDate] = useState('');
   const [lastRefreshed, setLastRefreshed] = useState(new Date());
   
-  // Fix #17: Persisted client name
-  const [clientName, setClientName] = useState(() => localStorage.getItem('shareT_clientName') || '');
+  // Fix #17: Persisted client name — scoped per shareId to prevent admin name bleed-through
+  const storageKey = `shareT_clientName_${linkToken}`;
+  const [clientName, setClientName] = useState(() => localStorage.getItem(storageKey) || '');
   
   const refreshTimerRef = useRef(null);
   
@@ -76,6 +77,15 @@ const SharedCardView = ({ linkToken }) => {
     
     try {
       const response = await sharedAccess.getCard(linkToken);
+
+      // If this share requires a password, verify the user passed the gate
+      if (response.linkInfo?.requiresPassword) {
+        const verified = sessionStorage.getItem(`shareT_pw_${linkToken}`);
+        if (!verified) {
+          window.location.href = `/shared/${linkToken}`;
+          return;
+        }
+      }
       
       if (response.data?.card) {
         setCardData(response.data.card);
@@ -192,7 +202,7 @@ const SharedCardView = ({ linkToken }) => {
   // Fix #17: Persist client name to localStorage
   const handleNameChange = (name) => {
     setClientName(name);
-    localStorage.setItem('shareT_clientName', name);
+    localStorage.setItem(storageKey, name);
   };
 
   // Fix #16: Comment with full markdown support

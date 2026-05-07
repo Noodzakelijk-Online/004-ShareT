@@ -18,6 +18,7 @@ import { toast } from "sonner";
 const ForgotPassword = () => {
   const [email, setEmail] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [resetUrl, setResetUrl] = useState("");
   const { resetPassword } = useAuth();
 
   const handleSubmit = async (e) => {
@@ -30,8 +31,13 @@ const ForgotPassword = () => {
 
     setIsSubmitting(true);
     try {
-      await resetPassword(email);
-      toast.success("Password reset link sent to your email");
+      const response = await resetPassword(email);
+      if (response?.resetUrl) {
+        setResetUrl(response.resetUrl);
+        toast.info(response.message || "Use the link below to reset your password.");
+      } else {
+        toast.success("Password reset link sent to your email");
+      }
     } catch (error) {
       console.error("Error resetting password:", error);
       toast.error(error.message || "Failed to send reset email");
@@ -79,6 +85,17 @@ const ForgotPassword = () => {
           </form>
         </CardContent>
 
+        {resetUrl && (
+          <div className="px-6 pb-4">
+            <p className="text-sm text-muted-foreground mb-2">Click the link below to reset your password:</p>
+            <a
+              href={resetUrl}
+              className="text-sm text-blue-600 underline break-all"
+            >
+              {resetUrl}
+            </a>
+          </div>
+        )}
         <CardFooter className="flex justify-center">
           <p className="text-sm text-muted-foreground">
             Remembered your password?{" "}
