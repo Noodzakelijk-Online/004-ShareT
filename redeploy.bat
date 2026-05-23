@@ -2,7 +2,7 @@
 cd /d "%~dp0"
 
 :: ── EDIT THIS LINE: your ngrok static domain ──────────────────
-set NGROK_DOMAIN=8a0d-2406-d00-cccc-86af-ad9d-d538-3a5e-3674.ngrok-free.app
+set NGROK_DOMAIN=nonhyperbolic-antony-unresentful.ngrok-free.dev
 :: ──────────────────────────────────────────────────────────────
 
 title ShareT Redeploy
