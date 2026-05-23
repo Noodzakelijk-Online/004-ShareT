@@ -56,7 +56,7 @@ const SharedCardView = ({ linkToken }) => {
   const [actions, setActions] = useState([]);
   const [checklists, setChecklists] = useState([]);
   const [members, setMembers] = useState([]);
-  const [cardLinks, setCardLinks] = useState([]);
+  const [hideCompletedMap, setHideCompletedMap] = useState({});
   const [permissions, setPermissions] = useState({});
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState("details");
@@ -67,9 +67,19 @@ const SharedCardView = ({ linkToken }) => {
   
   // Fix #17: Persisted client name — scoped per shareId to prevent admin name bleed-through
   const storageKey = `shareT_clientName_${linkToken}`;
-  const [clientName, setClientName] = useState(() => localStorage.getItem(storageKey) || '');
+  const [clientName, setClientName] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    const urlName = params.get('name');
+    if (urlName) {
+      const name = decodeURIComponent(urlName);
+      localStorage.setItem(storageKey, name);
+      return name;
+    }
+    return localStorage.getItem(storageKey) || '';
+  });
   
   const refreshTimerRef = useRef(null);
+  const backgroundRefreshRef = useRef(null);
   
   const fetchCardData = useCallback(async () => {
     setIsLoading(true);
@@ -97,7 +107,6 @@ const SharedCardView = ({ linkToken }) => {
         promises.push(fetchAttachments());
         promises.push(fetchChecklists());
         promises.push(fetchMembers());
-        promises.push(fetchCardLinks());
         promises.push(fetchActions());
         
         await Promise.allSettled(promises);
@@ -172,17 +181,6 @@ const SharedCardView = ({ linkToken }) => {
     }
   };
 
-  // Fix #14: Fetch card-level links
-  const fetchCardLinks = async () => {
-    try {
-      const response = await sharedAccess.getLinks(linkToken);
-      if (response.data) {
-        setCardLinks(response.data);
-      }
-    } catch (error) {
-      console.error('Error fetching card links:', error);
-    }
-  };
   
   useEffect(() => {
     fetchCardData();
@@ -191,11 +189,17 @@ const SharedCardView = ({ linkToken }) => {
     refreshTimerRef.current = setInterval(() => {
       fetchCardData();
     }, AUTO_REFRESH_INTERVAL);
+
+    // Issue #6: Background polling every 90 seconds — only refreshes data, never touches typed text
+    backgroundRefreshRef.current = setInterval(() => {
+      fetchComments();
+      fetchAttachments();
+      fetchActions();
+    }, 90 * 1000);
     
     return () => {
-      if (refreshTimerRef.current) {
-        clearInterval(refreshTimerRef.current);
-      }
+      if (refreshTimerRef.current) clearInterval(refreshTimerRef.current);
+      if (backgroundRefreshRef.current) clearInterval(backgroundRefreshRef.current);
     };
   }, [fetchCardData]);
 
@@ -203,6 +207,10 @@ const SharedCardView = ({ linkToken }) => {
   const handleNameChange = (name) => {
     setClientName(name);
     localStorage.setItem(storageKey, name);
+  };
+
+  const toggleHideCompleted = (clId) => {
+    setHideCompletedMap(prev => ({ ...prev, [clId]: !prev[clId] }));
   };
 
   // Fix #16: Comment with full markdown support
@@ -346,6 +354,9 @@ const SharedCardView = ({ linkToken }) => {
   if (!cardData) return null;
 
   const isOverdue = cardData.due && !cardData.dueComplete && new Date(cardData.due) < new Date();
+  const fileAttachments = attachments.filter(a => a.isUpload);
+  const trelloCardLinks = attachments.filter(a => !a.isUpload && /trello\.com\/c\//i.test(a.url || ''));
+  const otherLinks = attachments.filter(a => !a.isUpload && !/trello\.com\/c\//i.test(a.url || ''));
 
   return (
     <div className="min-h-screen bg-[#f1f2f4]">
@@ -439,17 +450,29 @@ const SharedCardView = ({ linkToken }) => {
               const total = cl.checkItems?.length || 0;
               const done = cl.checkItems?.filter(i => i.state === 'complete').length || 0;
               const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+              const hideCompleted = !!hideCompletedMap[cl.id];
+              const visibleItems = (cl.checkItems || []).slice().sort((a, b) => a.pos - b.pos).filter(i => !hideCompleted || i.state !== 'complete');
               return (
                 <section key={cl.id}>
                   <div className="flex items-center justify-between mb-1">
                     <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
                       <CheckSquare className="h-4 w-4" /> {cl.name}
                     </h3>
-                    <span className="text-xs text-gray-500">{pct}%</span>
+                    <div className="flex items-center gap-3">
+                      {done > 0 && (
+                        <button
+                          onClick={() => toggleHideCompleted(cl.id)}
+                          className="text-xs text-[#0079bf] hover:underline"
+                        >
+                          {hideCompleted ? `Show completed (${done})` : 'Hide completed'}
+                        </button>
+                      )}
+                      <span className="text-xs text-gray-500">{pct}%</span>
+                    </div>
                   </div>
                   <Progress value={pct} className="h-2 mb-3" />
                   <div className="space-y-1">
-                    {cl.checkItems?.sort((a, b) => a.pos - b.pos).map(item => (
+                    {visibleItems.map(item => (
                       <div key={item.id} className="flex items-center gap-2.5 py-1 px-2 rounded hover:bg-gray-100">
                         <div className={`h-4 w-4 rounded border-2 flex items-center justify-center flex-shrink-0 ${item.state === 'complete' ? 'bg-[#0079bf] border-[#0079bf]' : 'border-gray-400'}`}>
                           {item.state === 'complete' && <span className="text-white text-[9px] font-bold">✓</span>}
@@ -462,27 +485,75 @@ const SharedCardView = ({ linkToken }) => {
               );
             })}
 
-            {/* Attachments */}
-            {attachments.length > 0 && (
+            {/* Files — always show section when user can upload, even if no files yet */}
+            {(fileAttachments.length > 0 || permissions.canUpload) && (
+              <section>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
+                    <Paperclip className="h-4 w-4" /> Attachments
+                  </h3>
+                  {permissions.canUpload && (
+                    <>
+                      <input type="file" id="att-upload-main" className="hidden" onChange={handleUploadAttachment} />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => document.getElementById('att-upload-main').click()}
+                        disabled={isSubmitting}
+                      >
+                        {isSubmitting ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Upload className="h-3 w-3 mr-1" />}
+                        Upload File
+                      </Button>
+                    </>
+                  )}
+                </div>
+                {fileAttachments.length > 0 ? (
+                  <div className="space-y-2">
+                    {fileAttachments.map(att => (
+                      <div key={att.id} className="flex items-center gap-3 p-3 bg-white border rounded-lg hover:bg-gray-50">
+                        <div className="w-16 h-12 bg-gray-100 rounded flex items-center justify-center flex-shrink-0 overflow-hidden">
+                          {att.previews?.length > 0
+                            ? <img src={att.previews[att.previews.length - 1].url} alt="" className="w-full h-full object-cover" />
+                            : <Paperclip className="h-5 w-5 text-gray-400" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-700 truncate">{att.name}</p>
+                          <p className="text-xs text-gray-400">{att.bytes ? `${Math.round(att.bytes / 1024)} KB · ` : ''}{formatExactDate(att.date)}</p>
+                        </div>
+                        <Button variant="outline" size="sm" asChild>
+                          <a href={sharedAccess.downloadAttachment(linkToken, att.id)} target="_blank" rel="noopener noreferrer">
+                            Download
+                          </a>
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-400 italic bg-white border rounded-lg p-4">No attachments yet. Use the button above to upload a file.</p>
+                )}
+              </section>
+            )}
+
+            {/* Trello Card Links */}
+            {trelloCardLinks.length > 0 && (
               <section>
                 <h3 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-1.5">
-                  <Paperclip className="h-4 w-4" /> Attachments
+                  <Link2 className="h-4 w-4" /> Trello Cards
                 </h3>
-                <div className="space-y-2">
-                  {attachments.map(att => (
-                    <div key={att.id} className="flex items-center gap-3 p-3 bg-white border rounded-lg hover:bg-gray-50">
-                      <div className="w-16 h-12 bg-gray-100 rounded flex items-center justify-center flex-shrink-0 overflow-hidden">
-                        {att.previews?.length > 0
-                          ? <img src={att.previews[att.previews.length - 1].url} alt="" className="w-full h-full object-cover" />
-                          : <Paperclip className="h-5 w-5 text-gray-400" />}
+                <div className="space-y-1.5">
+                  {trelloCardLinks.map(link => (
+                    <div key={link.id} className="flex items-center gap-2.5 p-2.5 bg-white border rounded-lg hover:bg-gray-50">
+                      <div className="w-8 h-8 rounded bg-[#0079bf] flex items-center justify-center flex-shrink-0">
+                        <Link2 className="h-3.5 w-3.5 text-white" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-700 truncate">{att.name}</p>
-                        <p className="text-xs text-gray-400">{att.bytes ? `${Math.round(att.bytes / 1024)} KB · ` : ''}{formatExactDate(att.date)}</p>
+                        <p className="text-sm font-medium text-gray-700 truncate">{link.name || renderUrl(link.url)}</p>
+                        <p className="text-xs text-gray-400">{formatExactDate(link.date)}</p>
                       </div>
                       <Button variant="outline" size="sm" asChild>
-                        <a href={sharedAccess.downloadAttachment(linkToken, att.id)} target="_blank" rel="noopener noreferrer">
-                          Download
+                        <a href={link.url} target="_blank" rel="noopener noreferrer">
+                          <ExternalLink className="h-3.5 w-3.5 mr-1" /> Open
                         </a>
                       </Button>
                     </div>
@@ -491,14 +562,14 @@ const SharedCardView = ({ linkToken }) => {
               </section>
             )}
 
-            {/* Links */}
-            {cardLinks.length > 0 && (
+            {/* Other Links */}
+            {otherLinks.length > 0 && (
               <section>
                 <h3 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-1.5">
-                  <Link2 className="h-4 w-4" /> Links
+                  <ExternalLink className="h-4 w-4" /> Links
                 </h3>
                 <div className="space-y-1">
-                  {cardLinks.map(link => (
+                  {otherLinks.map(link => (
                     <div key={link.id} className="flex items-center gap-2 p-2 bg-white border rounded hover:bg-gray-50">
                       <ExternalLink className="h-3.5 w-3.5 text-blue-500 flex-shrink-0" />
                       <a href={link.url} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-500 hover:underline truncate flex-1">

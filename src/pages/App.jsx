@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import TrelloConnect from '../components/TrelloConnect';
 import { useNavigate } from 'react-router-dom';
@@ -9,7 +9,8 @@ import { LogOut, BookOpen } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useCredits } from '../hooks/useCredits';
-import QRCode from 'qrcode.react';
+import { QRCodeCanvas } from 'qrcode.react';
+import { toPng } from 'html-to-image';
 import NewShareForm from '../components/NewShareForm';
 import PreviousLinks from '../components/PreviousLinks';
 import UserProfile from '../components/UserProfile';
@@ -27,12 +28,30 @@ const App = () => {
   const [currentShareLink, setCurrentShareLink] = useState('');
   const [showApiDocs, setShowApiDocs] = useState(false);
   const { toast } = useToast();
+  const qrRef = useRef(null);
 
   const handleCreateLink = () => {};
 
   const handleShowQRCode = (link) => {
     setCurrentShareLink(link);
     setShowQRCode(true);
+  };
+
+  const handleDownloadQR = () => {
+    if (!qrRef.current) return;
+    toPng(qrRef.current, { cacheBust: true })
+      .then(dataUrl => {
+        const a = document.createElement('a');
+        a.href = dataUrl;
+        a.download = 'sharet-qr.png';
+        a.click();
+      })
+      .catch(err => console.error('QR download failed:', err));
+  };
+
+  const handleCopyQRLink = () => {
+    navigator.clipboard.writeText(currentShareLink);
+    toast({ title: 'Link copied', description: 'Share link copied to clipboard.' });
   };
 
   const handleDisconnect = () => {
@@ -119,10 +138,17 @@ console.log(JSON.stringify(trelloData, null, 2));
             <DialogHeader>
               <DialogTitle>QR Code for Share Link</DialogTitle>
             </DialogHeader>
-            <div className="flex justify-center">
-              <QRCode value={currentShareLink} size={256} />
+            <div className="flex flex-col items-center gap-3">
+              <div ref={qrRef} className="inline-block p-3 bg-white rounded-lg border">
+                <QRCodeCanvas value={currentShareLink} size={240} />
+              </div>
+              <p className="text-xs text-muted-foreground text-center break-all max-w-xs">{currentShareLink}</p>
             </div>
-            <DialogFooter>
+            <DialogFooter className="flex gap-2 sm:justify-between">
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={handleCopyQRLink}>Copy Link</Button>
+                <Button variant="outline" onClick={handleDownloadQR}>Download PNG</Button>
+              </div>
               <Button onClick={() => setShowQRCode(false)}>Close</Button>
             </DialogFooter>
           </DialogContent>

@@ -267,6 +267,7 @@ const SharedLink = {
       allowedEmails: data.allowedEmails || [],
       password: data.password ? await bcrypt.hash(data.password, 10) : null,
       expiresAt: data.expiresAt || null,
+      guestTrelloToken: data.guestTrelloToken || null,
       isActive: true,
       accessCount: 0,
       lastAccessedAt: null,

@@ -26,11 +26,7 @@ const SharedPage = () => {
 
 const SharedCardPage = () => {
   const { shareId } = useParams();
-  return (
-    <div className="min-h-screen bg-background p-8">
-      <SharedCardView linkToken={shareId} />
-    </div>
-  );
+  return <SharedCardView linkToken={shareId} />;
 };
 
 const queryClient = new QueryClient();

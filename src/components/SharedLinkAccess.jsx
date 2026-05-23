@@ -22,6 +22,12 @@ const SharedLinkAccess = ({ linkToken }) => {
   const [secretPassed, setSecretPassed] = useState(false);
   
   const API_URL = import.meta.env.VITE_API_URL || '/api';
+  const toCardUrl = () => {
+    const name = new URLSearchParams(window.location.search).get('name');
+    return name
+      ? `/shared/${linkToken}/card?name=${encodeURIComponent(name)}`
+      : `/shared/${linkToken}/card`;
+  };
   
   useEffect(() => {
     // Fetch link info when component mounts
@@ -38,7 +44,7 @@ const SharedLinkAccess = ({ linkToken }) => {
         setLinkInfo(info);
         // Skip all gates if no restrictions
         if (!info.requiresEmail && !info.requiresPassword) {
-          window.location.href = `/shared/${linkToken}/card`;
+          window.location.href = toCardUrl();
         }
       } else {
         throw new Error('Invalid link or link information not found');
@@ -95,7 +101,7 @@ const SharedLinkAccess = ({ linkToken }) => {
         
         // Redirect to card view
         setTimeout(() => {
-          window.location.href = `/shared/${linkToken}/card`;
+          window.location.href = toCardUrl();
         }, 1000);
       } else {
         throw new Error(response.data.error || 'Invalid verification code');
@@ -148,7 +154,7 @@ const SharedLinkAccess = ({ linkToken }) => {
         sessionStorage.setItem(`shareT_pw_${linkToken}`, '1');
         setSecretPassed(true);
         if (!linkInfo.requiresEmail) {
-          window.location.href = `/shared/${linkToken}/card`;
+          window.location.href = toCardUrl();
         }
       }
     } catch (err) {

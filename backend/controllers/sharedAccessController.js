@@ -445,13 +445,30 @@ exports.addComment = async (req, res) => {
       });
     }
 
-    // Fix #17: Format comment with author name in bold, no system tags
-    // Fix #16: Pass markdown text through without stripping
-    const commentText = authorName
-      ? `**${authorName}**: ${text}`
-      : text;
-    
-    const url = `${TRELLO_API_BASE}/cards/${share.cardId}/actions/comments?key=${process.env.TRELLO_API_KEY}&token=${connection.trelloToken}&text=${encodeURIComponent(commentText)}`;
+    const key = process.env.TRELLO_API_KEY;
+    const botToken = process.env.TRELLO_BOT_TOKEN;
+
+    let trelloToken, commentText;
+
+    if (share.guestTrelloToken) {
+      // Priority 1: per-share dedicated client account — post as-is, no prefix
+      trelloToken = share.guestTrelloToken;
+      commentText = text;
+    } else if (botToken && authorName) {
+      // Priority 2: shared bot account — rename it to the client's name first so the
+      // comment is permanently recorded in Trello as being from "John Doe"
+      await fetch(`${TRELLO_API_BASE}/members/me?key=${key}&token=${botToken}&fullName=${encodeURIComponent(authorName)}`, {
+        method: 'PUT'
+      });
+      trelloToken = botToken;
+      commentText = text;
+    } else {
+      // Priority 3: owner token fallback — embed name as bold prefix
+      trelloToken = connection.trelloToken;
+      commentText = authorName ? `**${authorName}**: ${text}` : text;
+    }
+
+    const url = `${TRELLO_API_BASE}/cards/${share.cardId}/actions/comments?key=${key}&token=${trelloToken}&text=${encodeURIComponent(commentText)}`;
     const response = await fetch(url, { method: 'POST' });
     const comment = await response.json();
 

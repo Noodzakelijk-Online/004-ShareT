@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Share, Copy, Eye, EyeOff, QrCode, CheckCircle2 } from "lucide-react";
+import { Share, Copy, Eye, EyeOff, QrCode, CheckCircle2, ChevronDown, ChevronRight, Info } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -35,6 +35,9 @@ const NewShareForm = ({ shareType, setShareType, cardCount, setCardCount, credit
   const [expiryDate, setExpiryDate] = useState('');
   const [password, setPassword] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+  const [guestTrelloToken, setGuestTrelloToken] = useState('');
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showGuestToken, setShowGuestToken] = useState(false);
   // Fix #9: Green checkmark indicator instead of obstructive popup
   const [showSuccess, setShowSuccess] = useState(false);
 
@@ -93,7 +96,8 @@ const NewShareForm = ({ shareType, setShareType, cardCount, setCardCount, credit
             canSetDueDate: false
           },
           password: password || null,
-          expiresAt: expiryDate || null
+          expiresAt: expiryDate || null,
+          guestTrelloToken: guestTrelloToken || null
         });
 
         if (response.success && response.data) {
@@ -115,7 +119,8 @@ const NewShareForm = ({ shareType, setShareType, cardCount, setCardCount, credit
               canDownload: true,
               canSetDueDate: false
             },
-            expiresAt: expiryDate || null
+            expiresAt: expiryDate || null,
+            guestTrelloToken: guestTrelloToken || null
           });
           if (response.success && response.data) {
             cardUrls.push({
@@ -325,6 +330,56 @@ const NewShareForm = ({ shareType, setShareType, cardCount, setCardCount, credit
         </div>
       </div>
       
+      {/* Advanced: Guest Trello Token */}
+      <div>
+        <button
+          type="button"
+          className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 py-1"
+          onClick={() => setShowAdvanced(!showAdvanced)}
+        >
+          {showAdvanced ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+          Advanced options
+        </button>
+        {showAdvanced && (
+          <div className="mt-2 p-3 border rounded-lg bg-muted/20 space-y-2">
+            <div>
+              <Label htmlFor="guestToken" className="text-xs flex items-center gap-1">
+                Guest Trello Token
+                <span className="text-muted-foreground font-normal">(optional)</span>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-xs">
+                      <p>Create a real Trello account for this client (e.g. named "John Doe"), add it to your board, then generate their API token. Comments will appear in Trello as if from their own account — no bold name prefix.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </Label>
+              <div className="flex items-center gap-2 mt-1">
+                <Input
+                  id="guestToken"
+                  type={showGuestToken ? 'text' : 'password'}
+                  placeholder="Paste the client's Trello API token here"
+                  className="h-9 text-sm font-mono"
+                  value={guestTrelloToken}
+                  onChange={e => setGuestTrelloToken(e.target.value)}
+                />
+                <Button variant="outline" size="icon" className="h-9 w-9 shrink-0" onClick={() => setShowGuestToken(!showGuestToken)}>
+                  {showGuestToken ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                </Button>
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Get the token: log in as the client at{' '}
+                <a href="https://trello.com/app-key" target="_blank" rel="noopener noreferrer" className="underline">trello.com/app-key</a>,
+                click <em>Token</em> and paste it here.
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Fix #9: Create button with green checkmark confirmation */}
       <div className="flex items-center gap-3">
         <Button className="flex-1" onClick={handleCreateShare} disabled={isCreating}>

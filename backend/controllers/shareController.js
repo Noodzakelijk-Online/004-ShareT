@@ -43,7 +43,7 @@ exports.getShares = async (req, res) => {
 // Create new share
 exports.createShare = async (req, res) => {
   try {
-    const { cardId, cardName, boardId, boardName, permissions, allowedEmails, expiresAt, password } = req.body;
+    const { cardId, cardName, boardId, boardName, permissions, allowedEmails, expiresAt, password, guestTrelloToken } = req.body;
     const userId = req.user._id || req.user.id;
 
     const share = await SharedLink.create({
@@ -61,7 +61,8 @@ exports.createShare = async (req, res) => {
       },
       allowedEmails: allowedEmails || [],
       password: password || null,
-      expiresAt: expiresAt || null
+      expiresAt: expiresAt || null,
+      guestTrelloToken: guestTrelloToken || null
     });
 
     res.status(201).json({
@@ -106,7 +107,7 @@ exports.getShare = async (req, res) => {
 // Update share
 exports.updateShare = async (req, res) => {
   try {
-    const { permissions, allowedEmails, expiresAt, isActive } = req.body;
+    const { permissions, allowedEmails, expiresAt, isActive, guestTrelloToken } = req.body;
     const userId = req.user._id || req.user.id;
 
     const share = await SharedLink.findById(req.params.shareId);
@@ -123,6 +124,7 @@ exports.updateShare = async (req, res) => {
     if (allowedEmails !== undefined) updates.allowedEmails = allowedEmails;
     if (expiresAt !== undefined) updates.expiresAt = expiresAt;
     if (isActive !== undefined) updates.isActive = isActive;
+    if (guestTrelloToken !== undefined) updates.guestTrelloToken = guestTrelloToken;
 
     const updatedShare = await SharedLink.updateById(req.params.shareId, updates);
 
