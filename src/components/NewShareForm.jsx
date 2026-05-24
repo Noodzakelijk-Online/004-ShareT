@@ -20,6 +20,11 @@ const NewShareForm = ({ shareType, setShareType, cardCount, setCardCount, credit
 
   const workspaces = useMemo(() => {
     if (!trelloData?.boards) return [];
+    if (trelloData.organizations?.length) {
+      const orgNames = trelloData.organizations.map(o => o.displayName || o.name);
+      const hasPersonal = trelloData.boards.some(b => !b.organizationName || b.organizationName === 'Personal');
+      return hasPersonal ? [...orgNames, 'Personal'] : orgNames;
+    }
     const seen = new Set();
     trelloData.boards.forEach(b => seen.add(b.organizationName || 'Personal'));
     return [...seen];

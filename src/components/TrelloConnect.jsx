@@ -18,9 +18,9 @@ const TrelloConnect = ({ onConnect }) => {
       const res = await axios.get(`${API_URL}/trello/boards`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      return res.data?.boards || [];
+      return { boards: res.data?.boards || [], organizations: res.data?.organizations || [] };
     } catch {
-      return [];
+      return { boards: [], organizations: [] };
     }
   };
 
@@ -33,8 +33,8 @@ const TrelloConnect = ({ onConnect }) => {
       const connections = response.data?.connections || [];
       setTrelloConnections(connections);
       if (connections.length > 0) {
-        const boards = await fetchBoards(token);
-        onConnectRef.current({ ...connections[0], boards });
+        const { boards, organizations } = await fetchBoards(token);
+        onConnectRef.current({ ...connections[0], boards, organizations });
       }
     } catch (err) {
       console.error("Trello connections fetch error:", err?.response?.status, err?.message);
@@ -78,10 +78,10 @@ const TrelloConnect = ({ onConnect }) => {
         if (popup && !popup.closed) popup.close();
 
         if (msg.member) {
-          onConnectRef.current({ member: msg.member, boards: [] });
+          onConnectRef.current({ member: msg.member, boards: [], organizations: [] });
           const t = localStorage.getItem("token");
-          const boards = await fetchBoards(t);
-          onConnectRef.current({ member: msg.member, boards });
+          const { boards, organizations } = await fetchBoards(t);
+          onConnectRef.current({ member: msg.member, boards, organizations });
         }
         toast.success("Trello connected successfully!");
         setIsConnecting(false);
@@ -141,8 +141,8 @@ const TrelloConnect = ({ onConnect }) => {
                 variant="outline"
                 onClick={async () => {
                   const t = localStorage.getItem('token');
-                  const boards = await fetchBoards(t);
-                  onConnect({ ...connection, boards });
+                  const { boards, organizations } = await fetchBoards(t);
+                  onConnect({ ...connection, boards, organizations });
                 }}
               >
                 Select
