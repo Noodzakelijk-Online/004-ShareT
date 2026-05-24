@@ -245,9 +245,20 @@ exports.getBoards = async (req, res) => {
     const key = process.env.TRELLO_API_KEY;
     const token = connection.trelloToken;
 
-    // Step 1: Fetch organizations in Trello's native order (matches sidebar)
-    const orgsUrl = `${TRELLO_API_BASE}/members/me/organizations?key=${key}&token=${token}&fields=displayName,name,id`;
-    const organizations = await fetchJSON(orgsUrl).catch(() => []);
+    // Step 1: Fetch organizations sorted by Trello sidebar order.
+    // /members/me/organizations returns in creation order, NOT sidebar order.
+    // The member's idOrganizations array IS the canonical sidebar order.
+    const [memberMeta, orgsRaw] = await Promise.all([
+      fetchJSON(`${TRELLO_API_BASE}/members/me?key=${key}&token=${token}&fields=idOrganizations`).catch(() => ({})),
+      fetchJSON(`${TRELLO_API_BASE}/members/me/organizations?key=${key}&token=${token}&fields=displayName,name,id`).catch(() => [])
+    ]);
+    const orgById = Object.fromEntries(orgsRaw.map(o => [o.id, o]));
+    const sidebarOrder = memberMeta.idOrganizations || [];
+    // Re-sort by sidebar position; any org not in idOrganizations falls to the end
+    const organizations = [
+      ...sidebarOrder.map(id => orgById[id]).filter(Boolean),
+      ...orgsRaw.filter(o => !sidebarOrder.includes(o.id))
+    ];
 
     // Step 2: Get all boards with organization info
     const boardListUrl = `${TRELLO_API_BASE}/members/me/boards?key=${key}&token=${token}&fields=name,desc,url,closed,idOrganization&organization=true&organization_fields=displayName,name`;
