@@ -44,6 +44,15 @@ exports.protect = async (req, res, next) => {
   }
 };
 
+const ADMIN_EMAIL = 'noodzakelijkonline@gmail.com';
+
+exports.adminOnly = (req, res, next) => {
+  if (!req.user || req.user.email !== ADMIN_EMAIL) {
+    return res.status(403).json({ success: false, message: 'Admin access required' });
+  }
+  next();
+};
+
 // Optional auth - doesn't fail if no token
 exports.optionalAuth = async (req, res, next) => {
   try {

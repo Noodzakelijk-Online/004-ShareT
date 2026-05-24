@@ -112,6 +112,10 @@ export const auth = {
   }),
 
   verifyEmail: (token) => apiRequest(`/auth/verify-email/${token}`),
+
+  getCredits: () => apiRequest('/auth/credits'),
+
+  deductCredit: () => apiRequest('/auth/credits/deduct', { method: 'POST' }),
 };
 
 // Trello API
@@ -144,6 +148,17 @@ export const trello = {
   getCardLinks: (cardId) => apiRequest(`/trello/cards/${cardId}/links`),
   
   getCardPluginData: (cardId) => apiRequest(`/trello/cards/${cardId}/plugin-data`),
+};
+
+// Admin API
+export const admin = {
+  getStatus: () => apiRequest('/admin/status'),
+  getShares: () => apiRequest('/admin/shares'),
+  getUsers: () => apiRequest('/admin/users'),
+  addCredits: (userId, amount) => apiRequest('/admin/credits/add', {
+    method: 'POST',
+    body: JSON.stringify({ userId, amount }),
+  }),
 };
 
 // Shared Links API

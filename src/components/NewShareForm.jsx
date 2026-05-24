@@ -8,7 +8,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { sharedLinks } from '../api';
 
-const NewShareForm = ({ shareType, setShareType, cardCount, setCardCount, credits, freeSharesLeft, updateCredits, onCreateLink, trelloData, onShowQRCode }) => {
+const NewShareForm = ({ shareType, setShareType, cardCount, setCardCount, credits, freeSharesLeft, deductCredit, updateCredits, onCreateLink, trelloData, onShowQRCode }) => {
   const { toast: uiToast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
   const [selectedList, setSelectedList] = useState(null);
@@ -87,6 +87,12 @@ const NewShareForm = ({ shareType, setShareType, cardCount, setCardCount, credit
           return;
         }
 
+        if (credits !== Infinity && credits <= 0) {
+          uiToast({ title: 'No credits', description: 'Purchase more credits to create share links.', variant: 'destructive' });
+          setIsCreating(false);
+          return;
+        }
+
         // Create share via backend API (Fix #2: persistent storage)
         const response = await sharedLinks.create({
           cardId,
@@ -108,6 +114,7 @@ const NewShareForm = ({ shareType, setShareType, cardCount, setCardCount, credit
         if (response.success && response.data) {
           const shareUrl = `${window.location.origin}/shared/${response.data.shareId}`;
           setGeneratedUrls({ cardUrl: shareUrl, shareId: response.data.shareId });
+          if (deductCredit) await deductCredit();
         }
       } else if (shareType === "list" && selectedList) {
         const cardUrls = [];

@@ -476,3 +476,26 @@ exports.resetPassword = async (req, res) => {
     res.status(500).json({ success: false, message: 'Error resetting password', error: error.message });
   }
 };
+
+exports.getCredits = async (req, res) => {
+  try {
+    const userId = req.user._id || req.user.id;
+    const credits = await User.getCredits(userId);
+    res.json({ success: true, credits });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Error fetching credits' });
+  }
+};
+
+exports.deductCredit = async (req, res) => {
+  try {
+    const userId = req.user._id || req.user.id;
+    const remaining = await User.deductCredit(userId);
+    res.json({ success: true, credits: remaining });
+  } catch (error) {
+    if (error.message === 'Insufficient credits') {
+      return res.status(402).json({ success: false, message: 'Insufficient credits' });
+    }
+    res.status(500).json({ success: false, message: 'Error deducting credit' });
+  }
+};

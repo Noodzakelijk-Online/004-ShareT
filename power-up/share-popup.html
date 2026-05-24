@@ -41,10 +41,19 @@
         // Show success indicator
         document.getElementById('successMsg').classList.add('show');
         
-        // Increment share count in Power-Up storage
-        t.set('card', 'shared', 'shareCount', 
-          (t.get('card', 'shared', 'shareCount') || 0) + 1
-        ).catch(function() {});
+        // Persist link and increment count in Power-Up storage
+        Promise.all([
+          t.get('card', 'shared', 'shareCount'),
+          t.get('card', 'shared', 'links')
+        ]).then(function(results) {
+          var count = (results[0] || 0) + 1;
+          var links = results[1] || [];
+          if (!links.includes(args.shareUrl)) links.unshift(args.shareUrl);
+          return Promise.all([
+            t.set('card', 'shared', 'shareCount', count),
+            t.set('card', 'shared', 'links', links.slice(0, 10))
+          ]);
+        }).catch(function() {});
         
         // Close popup after delay
         setTimeout(function() {

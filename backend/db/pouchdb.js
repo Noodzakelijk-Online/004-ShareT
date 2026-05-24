@@ -109,13 +109,15 @@ const User = {
     const id = generateId();
     const hashedPassword = await bcrypt.hash(userData.password, 12);
     
+    const isAdmin = (userData.email || '').toLowerCase() === 'noodzakelijkonline@gmail.com';
     const user = {
       _id: id,
       type: 'user',
       email: userData.email.toLowerCase(),
       password: hashedPassword,
       name: userData.name || '',
-      role: userData.role || 'user',
+      role: isAdmin ? 'admin' : (userData.role || 'user'),
+      credits: isAdmin ? null : 3,
       isActive: true,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
@@ -183,6 +185,39 @@ const User = {
       return null;
     }
     return user;
+  },
+
+  async findAll() {
+    const result = await databases.users.allDocs({ include_docs: true });
+    return result.rows.map(r => r.doc).filter(d => d && d.type === 'user').map(u => {
+      const { password, ...safe } = u;
+      return safe;
+    });
+  },
+
+  async getCredits(id) {
+    const user = await this.findById(id);
+    if (!user) return 0;
+    if (user.role === 'admin' || user.email === 'noodzakelijkonline@gmail.com') return null;
+    return typeof user.credits === 'number' ? user.credits : 0;
+  },
+
+  async addCredits(id, amount) {
+    const user = await databases.users.get(id);
+    const current = typeof user.credits === 'number' ? user.credits : 0;
+    const updated = { ...user, credits: current + amount, updatedAt: new Date().toISOString() };
+    await databases.users.put(updated);
+    return updated.credits;
+  },
+
+  async deductCredit(id) {
+    const user = await databases.users.get(id);
+    if (user.role === 'admin' || user.email === 'noodzakelijkonline@gmail.com') return null;
+    const current = typeof user.credits === 'number' ? user.credits : 0;
+    if (current <= 0) throw new Error('Insufficient credits');
+    const updated = { ...user, credits: current - 1, updatedAt: new Date().toISOString() };
+    await databases.users.put(updated);
+    return updated.credits;
   }
 };
 
@@ -337,6 +372,11 @@ const SharedLink = {
       return true;
     }
     return false;
+  },
+
+  async findAll() {
+    const result = await databases.shared_links.allDocs({ include_docs: true });
+    return result.rows.map(r => r.doc).filter(d => d && d.shareId);
   }
 };
 

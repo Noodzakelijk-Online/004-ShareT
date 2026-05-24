@@ -14,13 +14,18 @@ import { toPng } from 'html-to-image';
 import NewShareForm from '../components/NewShareForm';
 import PreviousLinks from '../components/PreviousLinks';
 import UserProfile from '../components/UserProfile';
-// import { useAuth } from '../contexts/AuthContext';
+import AdminTab from '../components/AdminTab';
+import { useAuth } from '../contexts/AuthContext';
 import ApiDocumentation from '../components/ApiDocumentation';
+import { PaymentDialog } from '../components/PaymentDialog';
+
+const ADMIN_EMAIL = 'noodzakelijkonline@gmail.com';
 
 const App = () => {
   const navigate = useNavigate();
-  // const { currentUser } = useAuth();
-  const { credits, freeSharesLeft, updateCredits } = useCredits();
+  const { currentUser } = useAuth();
+  const isAdmin = currentUser?.email === ADMIN_EMAIL;
+  const { credits, freeSharesLeft, deductCredit, updateCredits } = useCredits();
   const [shareType, setShareType] = useState("card");
   const [cardCount, setCardCount] = useState(1);
   const [trelloData, setTrelloData] = useState(null);
@@ -61,7 +66,6 @@ const App = () => {
       description: "You have been successfully disconnected from your Trello account.",
     });
   };
-console.log(JSON.stringify(trelloData, null, 2));
   return (
     <div className="bg-background text-foreground min-h-screen p-8">
       <div className="max-w-2xl mx-auto">
@@ -103,18 +107,28 @@ console.log(JSON.stringify(trelloData, null, 2));
           <CardContent>
             {trelloData ? (
               <Tabs defaultValue="newShare">
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="newShare">New Share</TabsTrigger>
-                  <TabsTrigger value="previousLinks">Previous Links</TabsTrigger>
-                </TabsList>
+                <div className="flex items-center justify-between mb-2">
+                  <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-3' : 'grid-cols-2'}`}>
+                    <TabsTrigger value="newShare">New Share</TabsTrigger>
+                    <TabsTrigger value="previousLinks">Previous Links</TabsTrigger>
+                    {isAdmin && <TabsTrigger value="admin">⚙ Admin</TabsTrigger>}
+                  </TabsList>
+                </div>
+                {!isAdmin && credits !== Infinity && (
+                  <div className="flex items-center justify-between text-xs text-muted-foreground mb-2 px-1">
+                    <span>{credits} credits remaining</span>
+                    <PaymentDialog onPaymentSuccess={updateCredits} />
+                  </div>
+                )}
                 <TabsContent value="newShare">
                   <NewShareForm
                     shareType={shareType}
                     setShareType={setShareType}
                     cardCount={cardCount}
                     setCardCount={setCardCount}
-                    credits={Infinity}
+                    credits={credits}
                     freeSharesLeft={freeSharesLeft}
+                    deductCredit={deductCredit}
                     updateCredits={updateCredits}
                     onCreateLink={handleCreateLink}
                     trelloData={trelloData}
@@ -124,6 +138,11 @@ console.log(JSON.stringify(trelloData, null, 2));
                 <TabsContent value="previousLinks">
                   <PreviousLinks onShowQRCode={handleShowQRCode} />
                 </TabsContent>
+                {isAdmin && (
+                  <TabsContent value="admin">
+                    <AdminTab />
+                  </TabsContent>
+                )}
               </Tabs>
             ) : (
               <p className="text-center py-4">Connect to Trello to start creating share links.</p>

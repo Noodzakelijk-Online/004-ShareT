@@ -20,6 +20,7 @@ const express = require('express');
 const cors = require('cors');
 const session = require('express-session');
 const path = require('path');
+const fs = require('fs');
 const helmet = require('helmet');
 const compression = require('compression');
 const sirv = require('sirv');
@@ -40,6 +41,7 @@ const sharedLinkRoutes = require('./routes/sharedLinkRoutes');
 const sharedAccessRoutes = require('./routes/sharedAccessRoutes');
 const resourceRoutes = require('./routes/resourceRoutes');
 const billingRoutes = require('./routes/billingRoutes');
+const adminRoutes = require('./routes/adminRoutes');
 
 // Create Express app
 const app = express();
@@ -205,6 +207,13 @@ app.use('/api/shared-links', apiRateLimit, sharedLinkRoutes);
 app.use('/api/shared-access', apiRateLimit, sharedAccessRoutes);
 app.use('/api/resources', apiRateLimit, resourceRoutes);
 app.use('/api/billing', apiRateLimit, billingRoutes);
+app.use('/api/admin', apiRateLimit, adminRoutes);
+
+// Serve Trello Power-Up static files
+const powerUpPath = path.join(__dirname, '..', 'power-up');
+if (fs.existsSync(powerUpPath)) {
+  app.use('/power-up', express.static(powerUpPath));
+}
 
 // Maintenance page
 const maintenancePath = path.join(__dirname, 'public', 'maintenance.html');
@@ -243,7 +252,6 @@ app.get('/maintenance', (req, res) => {
 });
 
 // SIRV - 40% faster static file serving (GitHub: lukeed/sirv 1.2k+ ⭐)
-const fs = require('fs');
 let frontendPath = path.join(__dirname, 'frontend', 'dist');
 
 // Fallback for local development
