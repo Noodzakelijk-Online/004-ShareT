@@ -58,17 +58,45 @@ if %errorlevel% neq 0 (
     echo  [OK] Docker is running
 )
 
-:: ngrok (optional)
-set NGROK_AVAILABLE=0
+:: ngrok — check PATH first, then common install locations
+set NGROK_EXE=ngrok
 where ngrok >nul 2>&1
 if %errorlevel% equ 0 (
-    set NGROK_AVAILABLE=1
-    echo  [OK] ngrok found
-) else (
-    echo  [WARN] ngrok not in PATH - ShareT will only be accessible locally
-    echo         Install: https://ngrok.com/download
-    set SKIP_NGROK=1
+    echo  [OK] ngrok found in PATH
+    goto ngrok_found
 )
+if exist "%USERPROFILE%\AppData\Local\Microsoft\WinGet\Packages\Ngrok.Ngrok_Microsoft.Winget.Source_8wekyb3d8bbwe\ngrok.exe" (
+    set "NGROK_EXE=%USERPROFILE%\AppData\Local\Microsoft\WinGet\Packages\Ngrok.Ngrok_Microsoft.Winget.Source_8wekyb3d8bbwe\ngrok.exe"
+    echo  [OK] ngrok found (WinGet install)
+    goto ngrok_found
+)
+if exist "%USERPROFILE%\AppData\Local\ngrok\ngrok.exe" (
+    set "NGROK_EXE=%USERPROFILE%\AppData\Local\ngrok\ngrok.exe"
+    echo  [OK] ngrok found (AppData)
+    goto ngrok_found
+)
+if exist "%USERPROFILE%\ngrok.exe" (
+    set "NGROK_EXE=%USERPROFILE%\ngrok.exe"
+    echo  [OK] ngrok found (user folder)
+    goto ngrok_found
+)
+if exist "C:\ngrok\ngrok.exe" (
+    set "NGROK_EXE=C:\ngrok\ngrok.exe"
+    echo  [OK] ngrok found (C:\ngrok)
+    goto ngrok_found
+)
+if exist "C:\tools\ngrok\ngrok.exe" (
+    set "NGROK_EXE=C:\tools\ngrok\ngrok.exe"
+    echo  [OK] ngrok found (C:\tools\ngrok)
+    goto ngrok_found
+)
+:: Not found anywhere
+echo  [WARN] ngrok not found - running in LOCAL mode only
+echo         To enable public access: https://ngrok.com/download
+set SKIP_NGROK=1
+goto ngrok_done
+:ngrok_found
+:ngrok_done
 
 :: Node.js (optional for Docker mode)
 where node >nul 2>&1
@@ -112,8 +140,8 @@ if %SKIP_NGROK% equ 1 (
     echo  [3/3] Skipping ngrok (--local flag or ngrok not installed)
 ) else (
     echo  [3/3] Starting ngrok tunnel...
-    start "ngrok - ShareT" ngrok http --domain=%NGROK_DOMAIN% %PORT%
-    timeout /t 2 /nobreak >nul
+    start "ngrok - ShareT" "%NGROK_EXE%" http %PORT%
+    timeout /t 3 /nobreak >nul
 )
 
 :: ── Open browser ──────────────────────────────────────────────
@@ -128,9 +156,10 @@ echo  ============================================================
 echo.
 echo    Local:   http://localhost:%PORT%
 if %SKIP_NGROK% equ 0 (
-    echo    Public:  https://%NGROK_DOMAIN%
+    echo    Public:  Check the ngrok window for your public URL
+    echo             (looks like https://xxxx-xx-xx-xx-xx.ngrok-free.app)
     echo.
-    echo    Share the PUBLIC link with clients.
+    echo    Copy that URL and share it with clients.
 ) else (
     echo.
     echo    Running in LOCAL mode only (no public URL).
