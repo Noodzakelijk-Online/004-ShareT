@@ -20,8 +20,8 @@ COPY backend/ ./backend/
 # Copy built frontend to backend's serving directory
 COPY --from=frontend-build /app/dist ./backend/frontend/dist
 
-# Copy power-up files
-COPY power-up/ ./backend/public/power-up/
+# Copy power-up files (served at /power-up/ route)
+COPY power-up/ ./power-up/
 
 # Create data directory for PouchDB
 RUN mkdir -p /app/backend/data

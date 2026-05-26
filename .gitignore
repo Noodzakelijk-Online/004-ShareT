@@ -30,6 +30,10 @@ backend/.env
 backend/.env.production
 
 # Environment files with secrets - never commit these
+.env
+.env.*
+!.env.docker.example
+!.env.example
 
 # Build output
 dist/

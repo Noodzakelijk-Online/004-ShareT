@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   sharet:
     build: .
@@ -16,20 +14,16 @@ services:
       - NODE_ENV=production
       - PORT=5005
       - DATA_DIR=/app/backend/data
+    # Resource limits (local-first optimization)
+    mem_limit: 512m
+    memswap_limit: 512m
+    cpus: '1.5'
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5005/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 15s
-    deploy:
-      resources:
-        limits:
-          cpus: '1.5'
-          memory: 512M
-        reservations:
-          cpus: '0.25'
-          memory: 128M
     logging:
       driver: "json-file"
       options:
