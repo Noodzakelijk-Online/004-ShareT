@@ -1,173 +1,185 @@
 @echo off
+setlocal enabledelayedexpansion
 cd /d "%~dp0"
-title ShareT - One-Click Startup
+title ShareT - One-Click Setup
+color 0A
 
-:: ── EDIT THESE LINES ──────────────────────────────────────────
-set NGROK_DOMAIN=nonhyperbolic-antony-unresentful.ngrok-free.dev
+:: ── SETTINGS (edit if needed) ─────────────────────────────────
 set PORT=5005
-set DOCKER_EXE=C:\Program Files\Docker\Docker\Docker Desktop.exe
+set "DOCKER_EXE=C:\Program Files\Docker\Docker\Docker Desktop.exe"
+set "NGROK_INSTALL_DIR=%USERPROFILE%\AppData\Local\ngrok"
 :: ──────────────────────────────────────────────────────────────
-
-:: Parse flags: pass --local to skip ngrok
-set SKIP_NGROK=0
-for %%A in (%*) do if /i "%%A"=="--local" set SKIP_NGROK=1
 
 cls
 echo.
 echo  ============================================================
-echo    ShareT One-Click Startup
+echo    ShareT  --  One-Click Setup
 echo  ============================================================
 echo.
 
-:: ── DEPENDENCY CHECKS ─────────────────────────────────────────
-echo  Checking dependencies...
+:: ════════════════════════════════════════════════
+:: STEP 1  CHECK + START DOCKER
+:: ════════════════════════════════════════════════
+echo  [1/4] Checking Docker...
 
-:: Docker installed?
 where docker >nul 2>&1
-if %errorlevel% neq 0 (
+if !errorlevel! neq 0 (
     echo.
-    echo  [ERROR] Docker is not installed or not in PATH.
-    echo  Install Docker Desktop from: https://www.docker.com/products/docker-desktop
+    echo  [!] Docker is not installed.
+    echo      Opening download page...
     start https://www.docker.com/products/docker-desktop
-    pause & exit /b 1
+    echo      Install Docker Desktop, restart your PC, then run this again.
+    echo.
+    pause
+    exit /b
 )
-echo  [OK] Docker CLI found
+echo  [OK] Docker CLI found.
 
-:: Docker daemon running?
 docker info >nul 2>&1
-if %errorlevel% neq 0 (
-    echo  [INFO] Docker is not running. Starting Docker Desktop...
+if !errorlevel! neq 0 (
+    echo  [..] Docker not running. Starting Docker Desktop...
     if exist "%DOCKER_EXE%" (
         start "" "%DOCKER_EXE%"
     ) else (
         start "" "%LOCALAPPDATA%\Docker\Docker Desktop.exe" 2>nul
     )
-    echo  [INFO] Waiting for Docker daemon (up to 90 seconds)...
-    set /a _dc=0
+    echo  [..] Waiting up to 90s for Docker to start...
+    set _t=0
     :waitdocker
     timeout /t 3 /nobreak >nul
-    set /a _dc+=3
-    if %_dc% gtr 90 (
-        echo  [ERROR] Docker did not start. Please open Docker Desktop manually.
-        pause & exit /b 1
-    )
+    set /a _t+=3
     docker info >nul 2>&1
-    if %errorlevel% neq 0 goto waitdocker
-    echo  [OK] Docker is running
-) else (
-    echo  [OK] Docker is running
-)
-
-:: ngrok — check PATH first, then common install locations
-set NGROK_EXE=ngrok
-where ngrok >nul 2>&1
-if %errorlevel% equ 0 (
-    echo  [OK] ngrok found in PATH
-    goto ngrok_found
-)
-if exist "%USERPROFILE%\AppData\Local\Microsoft\WinGet\Packages\Ngrok.Ngrok_Microsoft.Winget.Source_8wekyb3d8bbwe\ngrok.exe" (
-    set "NGROK_EXE=%USERPROFILE%\AppData\Local\Microsoft\WinGet\Packages\Ngrok.Ngrok_Microsoft.Winget.Source_8wekyb3d8bbwe\ngrok.exe"
-    echo  [OK] ngrok found (WinGet install)
-    goto ngrok_found
-)
-if exist "%USERPROFILE%\AppData\Local\ngrok\ngrok.exe" (
-    set "NGROK_EXE=%USERPROFILE%\AppData\Local\ngrok\ngrok.exe"
-    echo  [OK] ngrok found (AppData)
-    goto ngrok_found
-)
-if exist "%USERPROFILE%\ngrok.exe" (
-    set "NGROK_EXE=%USERPROFILE%\ngrok.exe"
-    echo  [OK] ngrok found (user folder)
-    goto ngrok_found
-)
-if exist "C:\ngrok\ngrok.exe" (
-    set "NGROK_EXE=C:\ngrok\ngrok.exe"
-    echo  [OK] ngrok found (C:\ngrok)
-    goto ngrok_found
-)
-if exist "C:\tools\ngrok\ngrok.exe" (
-    set "NGROK_EXE=C:\tools\ngrok\ngrok.exe"
-    echo  [OK] ngrok found (C:\tools\ngrok)
-    goto ngrok_found
-)
-:: Not found anywhere
-echo  [WARN] ngrok not found - running in LOCAL mode only
-echo         To enable public access: https://ngrok.com/download
-set SKIP_NGROK=1
-goto ngrok_done
-:ngrok_found
-:ngrok_done
-
-:: Node.js (optional for Docker mode)
-where node >nul 2>&1
-if %errorlevel% equ 0 (echo  [OK] Node.js found) else (echo  [INFO] Node.js not found - not needed in Docker mode)
-
-echo.
-
-:: ── STEP 1: Stop ngrok ────────────────────────────────────────
-echo  [1/3] Stopping existing ngrok...
-taskkill /F /IM ngrok.exe /T >nul 2>&1
-echo        Done.
-
-:: ── STEP 2: Rebuild containers ────────────────────────────────
-echo  [2/3] Rebuilding ShareT containers...
-echo        (first run: ~2 min, subsequent: ~15 s)
-echo.
-docker-compose down
-docker-compose up -d --build
-if %errorlevel% neq 0 (
+    if !errorlevel! equ 0 goto docker_ok
+    if !_t! lss 90 goto waitdocker
     echo.
-    echo  [ERROR] Docker build failed. Check output above.
-    pause & exit /b 1
+    echo  [!] Docker did not start in time.
+    echo      Please open Docker Desktop manually, wait for it to load,
+    echo      then run this file again.
+    echo.
+    pause
+    exit /b
+    :docker_ok
+)
+echo  [OK] Docker is running.
+
+:: ════════════════════════════════════════════════
+:: STEP 2  FIND OR AUTO-INSTALL NGROK
+:: ════════════════════════════════════════════════
+echo.
+echo  [2/4] Checking ngrok...
+
+set "NGROK_EXE="
+
+:: PATH
+where ngrok >nul 2>&1
+if !errorlevel! equ 0 ( for /f "delims=" %%X in ('where ngrok') do set "NGROK_EXE=%%X" & goto ngrok_ok )
+
+:: Common locations
+if exist "%NGROK_INSTALL_DIR%\ngrok.exe"           set "NGROK_EXE=%NGROK_INSTALL_DIR%\ngrok.exe"           & goto ngrok_ok
+if exist "%USERPROFILE%\ngrok.exe"                 set "NGROK_EXE=%USERPROFILE%\ngrok.exe"                 & goto ngrok_ok
+if exist "C:\ngrok\ngrok.exe"                      set "NGROK_EXE=C:\ngrok\ngrok.exe"                      & goto ngrok_ok
+if exist "C:\tools\ngrok\ngrok.exe"                set "NGROK_EXE=C:\tools\ngrok\ngrok.exe"                & goto ngrok_ok
+if exist "%ProgramFiles%\ngrok\ngrok.exe"          set "NGROK_EXE=%ProgramFiles%\ngrok\ngrok.exe"          & goto ngrok_ok
+if exist "%LOCALAPPDATA%\Microsoft\WinGet\Packages\Ngrok.Ngrok_Microsoft.Winget.Source_8wekyb3d8bbwe\ngrok.exe" (
+    set "NGROK_EXE=%LOCALAPPDATA%\Microsoft\WinGet\Packages\Ngrok.Ngrok_Microsoft.Winget.Source_8wekyb3d8bbwe\ngrok.exe"
+    goto ngrok_ok
 )
 
-:: Wait for health endpoint (max 60 s)
+:: Not found — auto download
+echo  [..] ngrok not found. Downloading automatically...
+mkdir "%NGROK_INSTALL_DIR%" 2>nul
+powershell -NoProfile -Command "Invoke-WebRequest -Uri 'https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip' -OutFile '%TEMP%\ngrok.zip' -UseBasicParsing"
+if !errorlevel! neq 0 (
+    echo  [!] Download failed. Check your internet connection.
+    echo      Manual install: https://ngrok.com/download
+    goto ngrok_skip
+)
+powershell -NoProfile -Command "Expand-Archive -Path '%TEMP%\ngrok.zip' -DestinationPath '%NGROK_INSTALL_DIR%' -Force"
+set "NGROK_EXE=%NGROK_INSTALL_DIR%\ngrok.exe"
+if not exist "!NGROK_EXE!" (
+    echo  [!] Extract failed. Install manually: https://ngrok.com/download
+    set "NGROK_EXE="
+    goto ngrok_skip
+)
+echo  [OK] ngrok downloaded to %NGROK_INSTALL_DIR%
+goto ngrok_ok
+
+:ngrok_ok
+echo  [OK] ngrok ready.
+:ngrok_skip
+
+:: ════════════════════════════════════════════════
+:: STEP 3  BUILD + START SHARETT
+:: ════════════════════════════════════════════════
 echo.
-echo  [INFO] Waiting for ShareT to be ready...
-set /a _hc=0
+echo  [3/4] Building and starting ShareT...
+echo        (first build: ~2 min  /  restart: ~20 sec)
+echo.
+
+taskkill /F /IM ngrok.exe /T >nul 2>&1
+
+docker-compose down >nul 2>&1
+docker-compose up -d --build
+if !errorlevel! neq 0 (
+    echo.
+    echo  [!] Docker build failed. See errors above.
+    echo.
+    pause
+    exit /b
+)
+
+echo.
+echo  [..] Waiting for ShareT to be ready...
+set _h=0
 :waithealth
 timeout /t 3 /nobreak >nul
-set /a _hc+=3
+set /a _h+=3
 curl -sf http://localhost:%PORT%/health >nul 2>&1
-if %errorlevel% neq 0 (
-    if %_hc% lss 60 goto waithealth
-    echo  [WARN] Health check timed out - ShareT may still be starting
-)
-echo  [OK] ShareT is ready
+if !errorlevel! equ 0 goto health_ok
+if !_h! lss 60 goto waithealth
+echo  [WARN] Health check timed out - ShareT may still be starting.
+:health_ok
+echo  [OK] ShareT is running.
 
-:: ── STEP 3: Start ngrok ────────────────────────────────────────
-if %SKIP_NGROK% equ 1 (
-    echo  [3/3] Skipping ngrok (--local flag or ngrok not installed)
-) else (
-    echo  [3/3] Starting ngrok tunnel...
-    start "ngrok - ShareT" "%NGROK_EXE%" http %PORT%
+:: ════════════════════════════════════════════════
+:: STEP 4  START NGROK
+:: ════════════════════════════════════════════════
+echo.
+echo  [4/4] Starting ngrok...
+if defined NGROK_EXE (
+    start "ngrok - ShareT" cmd /k ""!NGROK_EXE!" http %PORT%"
     timeout /t 3 /nobreak >nul
+    echo  [OK] ngrok window opened.
+) else (
+    echo  [SKIP] ngrok unavailable - ShareT running locally only.
 )
 
-:: ── Open browser ──────────────────────────────────────────────
+:: Open browser
 start http://localhost:%PORT%
 
-:: ── Result ────────────────────────────────────────────────────
+:: ════════════════════════════════════════════════
+:: DONE
+:: ════════════════════════════════════════════════
 cls
 echo.
 echo  ============================================================
-echo    ShareT is LIVE
+echo    ShareT is RUNNING
 echo  ============================================================
 echo.
 echo    Local:   http://localhost:%PORT%
-if %SKIP_NGROK% equ 0 (
-    echo    Public:  Check the ngrok window for your public URL
-    echo             (looks like https://xxxx-xx-xx-xx-xx.ngrok-free.app)
-    echo.
-    echo    Copy that URL and share it with clients.
+echo.
+if defined NGROK_EXE (
+    echo    Public:  Check the [ngrok - ShareT] window for your URL
+    echo             It looks like: https://xxxx-xx-xx.ngrok-free.app
+    echo             Copy that URL and share it with clients.
 ) else (
-    echo.
-    echo    Running in LOCAL mode only (no public URL).
-    echo    Run WITHOUT --local flag to enable public access.
+    echo    Public:  ngrok not available - local only
+    echo             Install ngrok: https://ngrok.com/download
 )
 echo.
 echo  ============================================================
-echo  To stop ShareT:  docker-compose down
+echo    To STOP ShareT:   docker-compose down
+echo    To RESTART:       run this file again
 echo  ============================================================
 echo.
 pause
