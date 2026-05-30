@@ -10,6 +10,14 @@ set "DOCKER_EXE=C:\Program Files\Docker\Docker\Docker Desktop.exe"
 set "NGROK_INSTALL_DIR=%USERPROFILE%\AppData\Local\ngrok"
 :: ──────────────────────────────────────────────────────────────
 
+:: Windows / Notepad sometimes saves ".env.docker" as ".env.docker.txt".
+:: If that happened, fix the name automatically so docker-compose and the
+:: PUBLIC_URL read below both find the real file.
+if not exist ".env.docker" if exist ".env.docker.txt" (
+    echo  [..] Found .env.docker.txt - renaming to .env.docker
+    ren ".env.docker.txt" ".env.docker"
+)
+
 :: Read PUBLIC_URL from .env.docker for ngrok domain
 set "PUBLIC_URL="
 if exist .env.docker (
