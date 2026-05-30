@@ -10,6 +10,17 @@ set "DOCKER_EXE=C:\Program Files\Docker\Docker\Docker Desktop.exe"
 set "NGROK_INSTALL_DIR=%USERPROFILE%\AppData\Local\ngrok"
 :: ──────────────────────────────────────────────────────────────
 
+:: Read PUBLIC_URL from .env.docker for ngrok domain
+set "PUBLIC_URL="
+if exist .env.docker (
+    for /f "tokens=1,2 delims==" %%A in ('type .env.docker ^| findstr /B "PUBLIC_URL="') do (
+        set "PUBLIC_URL=%%B"
+    )
+)
+:: Extract domain from PUBLIC_URL (remove https://)
+set "NGROK_DOMAIN=%PUBLIC_URL:https://=%"
+set "NGROK_DOMAIN=%NGROK_DOMAIN:http://=%"
+
 cls
 echo.
 echo  ============================================================
@@ -106,7 +117,48 @@ goto ngrok_ok
 
 :ngrok_ok
 echo  [OK] ngrok ready.
-:ngrok_skip
+
+:: ════════════════════════════════════════════════
+:: STEP 2b  CHECK NGROK AUTH TOKEN
+:: ════════════════════════════════════════════════
+echo.
+echo  [2b/4] Checking ngrok auth token...
+
+:: Check if config file exists and has authtoken
+set "NGROK_CONFIG=%NGROK_INSTALL_DIR%\ngrok.yml"
+if exist "%NGROK_CONFIG%" (
+    findstr /C:"authtoken" "%NGROK_CONFIG%" >nul 2>&1
+    if !errorlevel! equ 0 (
+        echo  [OK] ngrok auth token found.
+        goto token_ok
+    )
+)
+
+:: No token found - prompt user
+echo.
+echo  [!] ngrok auth token not found.
+echo      You need your authtoken from your ngrok subscription.
+echo.
+echo      1. Go to: https://dashboard.ngrok.com/get-started/your-authtoken
+echo      2. Copy your authtoken (starts with something like: 2abc...)
+echo.
+set /p NGROK_TOKEN="Paste your ngrok authtoken here: "
+if "%NGROK_TOKEN%"=="" (
+    echo  [!] No token entered. ngrok will run in free mode (random URL).
+    goto token_skip
+)
+
+:: Add the token to ngrok config
+echo  [..] Adding authtoken to ngrok config...
+"!NGROK_EXE!" config add-authtoken %NGROK_TOKEN%
+if !errorlevel! neq 0 (
+    echo  [!] Failed to add authtoken. Token may be invalid.
+    echo      ngrok will run in free mode (random URL).
+    goto token_skip
+)
+echo  [OK] ngrok auth token saved.
+:token_ok
+:token_skip
 
 :: ════════════════════════════════════════════════
 :: STEP 3  BUILD + START SHARETT
@@ -147,7 +199,14 @@ echo  [OK] ShareT is running.
 echo.
 echo  [4/4] Starting ngrok...
 if defined NGROK_EXE (
-    start "ngrok - ShareT" cmd /k ""!NGROK_EXE!" http %PORT%"
+    if defined NGROK_DOMAIN (
+        echo  [..] Using domain from .env.docker: %NGROK_DOMAIN%
+        start "ngrok - ShareT" cmd /k ""!NGROK_EXE!" http --domain=%NGROK_DOMAIN% %PORT%"
+    ) else (
+        echo  [..] Using random ngrok URL (free mode)
+        echo      Set PUBLIC_URL in .env.docker to use your fixed domain
+        start "ngrok - ShareT" cmd /k ""!NGROK_EXE!" http %PORT%"
+    )
     timeout /t 3 /nobreak >nul
     echo  [OK] ngrok window opened.
 ) else (
@@ -169,9 +228,15 @@ echo.
 echo    Local:   http://localhost:%PORT%
 echo.
 if defined NGROK_EXE (
-    echo    Public:  Check the [ngrok - ShareT] window for your URL
-    echo             It looks like: https://xxxx-xx-xx.ngrok-free.app
-    echo             Copy that URL and share it with clients.
+    if defined NGROK_DOMAIN (
+        echo    Public:  https://%NGROK_DOMAIN%
+        echo             This is the URL from your .env.docker PUBLIC_URL setting.
+        echo             Share this URL with clients — it never changes.
+    ) else (
+        echo    Public:  Check the [ngrok - ShareT] window for your URL
+        echo             It looks like: https://xxxx-xx-xx.ngrok-free.app
+        echo             Set PUBLIC_URL in .env.docker to use your fixed domain.
+    )
 ) else (
     echo    Public:  ngrok not available - local only
     echo             Install ngrok: https://ngrok.com/download
