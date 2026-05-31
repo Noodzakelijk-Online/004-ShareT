@@ -46,6 +46,18 @@ exports.createShare = async (req, res) => {
     const { cardId, cardName, boardId, boardName, permissions, allowedEmails, expiresAt, password, guestTrelloToken } = req.body;
     const userId = req.user._id || req.user.id;
 
+    // Prevent duplicate links: if an active link to this card already exists,
+    // return it instead of creating a new one (no credit is spent).
+    const existing = await SharedLink.findActiveByUserAndCard(userId, cardId);
+    if (existing) {
+      return res.status(200).json({
+        success: true,
+        duplicate: true,
+        message: 'An active share link already exists for this card.',
+        data: existing
+      });
+    }
+
     const share = await SharedLink.create({
       userId,
       cardId,

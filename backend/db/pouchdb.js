@@ -327,7 +327,21 @@ const SharedLink = {
     });
     return result.docs;
   },
-  
+
+  // Find an existing active (enabled and not expired) link for a user's card.
+  // Used to prevent creating multiple links to the same card.
+  async findActiveByUserAndCard(userId, cardId) {
+    if (!cardId) return null;
+    const result = await databases.shared_links.find({
+      selector: { userId, cardId }
+    });
+    const now = new Date();
+    return result.docs.find(doc =>
+      doc.isActive !== false &&
+      (!doc.expiresAt || new Date(doc.expiresAt) > now)
+    ) || null;
+  },
+
   async findById(id) {
     try {
       return await databases.shared_links.get(id);

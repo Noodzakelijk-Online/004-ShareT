@@ -114,7 +114,15 @@ const NewShareForm = ({ shareType, setShareType, cardCount, setCardCount, credit
         if (response.success && response.data) {
           const shareUrl = `${window.location.origin}/shared/${response.data.shareId}`;
           setGeneratedUrls({ cardUrl: shareUrl, shareId: response.data.shareId });
-          if (deductCredit) await deductCredit();
+          if (response.duplicate) {
+            // An active link to this card already existed; reuse it (no credit spent).
+            uiToast({
+              title: "Existing link reused",
+              description: "An active share link for this card already exists, so we returned it instead of creating a duplicate. No credit was used.",
+            });
+          } else if (deductCredit) {
+            await deductCredit();
+          }
         }
       } else if (shareType === "list" && selectedList) {
         const cardUrls = [];
