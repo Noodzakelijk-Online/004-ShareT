@@ -2,6 +2,7 @@
 import { Link } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { useAuth } from '../contexts/AuthContext';
+import { ThemeToggle } from '../components/ThemeToggle';
 
 const Index = () => {
   const { currentUser } = useAuth();
@@ -10,7 +11,8 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       <header className="py-6 px-8 flex justify-between items-center">
         <h1 className="text-2xl font-bold">ShareT</h1>
-        <div className="space-x-4">
+        <div className="flex items-center space-x-4">
+          <ThemeToggle />
           {currentUser ? (
             <Button asChild>
               <Link to="/app">Dashboard</Link>

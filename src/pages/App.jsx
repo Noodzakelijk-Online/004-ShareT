@@ -18,6 +18,7 @@ import AdminTab from '../components/AdminTab';
 import { useAuth } from '../contexts/AuthContext';
 import ApiDocumentation from '../components/ApiDocumentation';
 import { PaymentDialog } from '../components/PaymentDialog';
+import { ThemeToggle } from '../components/ThemeToggle';
 
 const ADMIN_EMAIL = 'noodzakelijkonline@gmail.com';
 
@@ -88,6 +89,7 @@ const App = () => {
                 <Button variant="ghost" size="sm" onClick={() => navigate('/')}>
                   Back to Home
                 </Button>
+                <ThemeToggle />
               </div>
             </div>
             <div className="flex justify-between items-center mt-2">

@@ -6,8 +6,10 @@ import { Loader2, FileText, Paperclip, Calendar, MessageSquare, AlertTriangle, U
 import { toast } from "sonner";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import remarkBreaks from 'remark-breaks';
 import { format } from 'date-fns';
 import { sharedAccess } from '../api';
+import { ThemeToggle } from './ThemeToggle';
 
 const AUTO_REFRESH_INTERVAL = 30 * 60 * 1000; // 30 minutes
 
@@ -22,11 +24,12 @@ const renderUrl = (url) => {
 };
 
 // Fix #4 & #16: Markdown renderer component for Trello markup
+// remark-breaks makes single newlines render as line breaks, matching Trello's editor behavior
 const TrelloMarkdown = ({ content }) => {
   if (!content) return null;
   return (
     <ReactMarkdown
-      remarkPlugins={[remarkGfm]}
+      remarkPlugins={[remarkGfm, remarkBreaks]}
       components={{
         a: ({ href, children }) => (
           <a href={href} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:text-blue-700 underline break-all">
@@ -34,12 +37,16 @@ const TrelloMarkdown = ({ content }) => {
           </a>
         ),
         p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
-        ul: ({ children }) => <ul className="list-disc pl-5 mb-2">{children}</ul>,
-        ol: ({ children }) => <ol className="list-decimal pl-5 mb-2">{children}</ol>,
-        code: ({ inline, children }) => inline
-          ? <code className="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-sm font-mono">{children}</code>
-          : <pre className="bg-gray-100 dark:bg-gray-800 p-3 rounded overflow-x-auto text-sm font-mono mb-2"><code>{children}</code></pre>,
-        blockquote: ({ children }) => <blockquote className="border-l-4 border-gray-300 pl-3 italic text-muted-foreground">{children}</blockquote>,
+        ul: ({ children }) => <ul className="list-disc pl-5 mb-2 space-y-0.5">{children}</ul>,
+        ol: ({ children }) => <ol className="list-decimal pl-5 mb-2 space-y-0.5">{children}</ol>,
+        li: ({ children }) => <li className="leading-relaxed">{children}</li>,
+        h1: ({ children }) => <h1 className="text-lg font-bold mt-3 mb-1.5 first:mt-0">{children}</h1>,
+        h2: ({ children }) => <h2 className="text-base font-bold mt-3 mb-1.5 first:mt-0">{children}</h2>,
+        h3: ({ children }) => <h3 className="text-sm font-bold mt-2 mb-1 first:mt-0">{children}</h3>,
+        pre: ({ children }) => <pre className="bg-slate-100 dark:bg-slate-800 p-3 rounded overflow-x-auto text-sm font-mono mb-2">{children}</pre>,
+        code: ({ children }) => <code className="bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded text-[13px] font-mono">{children}</code>,
+        blockquote: ({ children }) => <blockquote className="border-l-4 border-slate-300 dark:border-slate-600 pl-3 italic text-muted-foreground">{children}</blockquote>,
+        hr: () => <hr className="my-3 border-slate-200 dark:border-slate-700" />,
         strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
       }}
     >
@@ -332,19 +339,19 @@ const SharedCardView = ({ linkToken }) => {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center min-h-screen bg-[#f1f2f4]">
-        <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+      <div className="flex justify-center items-center min-h-screen bg-[#f1f2f4] dark:bg-[#1d2125]">
+        <Loader2 className="h-8 w-8 animate-spin text-gray-400 dark:text-zinc-500" />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex justify-center items-center min-h-screen bg-[#f1f2f4] p-4">
-        <div className="bg-white rounded-lg shadow p-6 max-w-md w-full text-center">
+      <div className="flex justify-center items-center min-h-screen bg-[#f1f2f4] dark:bg-[#1d2125] p-4">
+        <div className="bg-white dark:bg-[#22272b] rounded-lg shadow p-6 max-w-md w-full text-center">
           <AlertTriangle className="h-10 w-10 text-red-400 mx-auto mb-3" />
-          <h2 className="text-lg font-semibold text-gray-700 mb-2">Access Error</h2>
-          <p className="text-gray-500 mb-4">{error}</p>
+          <h2 className="text-lg font-semibold text-gray-700 dark:text-zinc-200 mb-2">Access Error</h2>
+          <p className="text-gray-500 dark:text-zinc-400 mb-4">{error}</p>
           <Button onClick={fetchCardData} variant="outline" className="w-full">Try Again</Button>
         </div>
       </div>
@@ -359,7 +366,7 @@ const SharedCardView = ({ linkToken }) => {
   const otherLinks = attachments.filter(a => !a.isUpload && !/trello\.com\/c\//i.test(a.url || ''));
 
   return (
-    <div className="min-h-screen bg-[#f1f2f4]">
+    <div className="min-h-screen bg-[#f1f2f4] dark:bg-[#1d2125]">
       {/* Cover */}
       {cardData.cover?.color && (
         <div className="w-full h-32" style={{ backgroundColor: cardData.cover.color }} />
@@ -367,12 +374,17 @@ const SharedCardView = ({ linkToken }) => {
 
       <div className="max-w-4xl mx-auto px-4 py-6">
         {/* Card title + breadcrumb */}
-        <div className="mb-4">
-          <h1 className="text-2xl font-bold text-gray-800 leading-tight">{cardData.name}</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Shared via <span className="font-medium text-[#0079bf]">ShareT</span>
-            {cardData.idBoard && <span className="ml-2 text-gray-400">· Board ID: {cardData.idBoard}</span>}
-          </p>
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800 dark:text-zinc-100 leading-tight">{cardData.name}</h1>
+            <p className="text-sm text-gray-500 dark:text-zinc-400 mt-1">
+              Shared via <span className="font-medium text-[#0079bf]">ShareT</span>
+              {cardData.idBoard && <span className="ml-2 text-gray-400 dark:text-zinc-500">· Board ID: {cardData.idBoard}</span>}
+            </p>
+          </div>
+          <div className="flex-shrink-0">
+            <ThemeToggle />
+          </div>
         </div>
 
         <div className="flex flex-col lg:flex-row gap-4">
@@ -382,15 +394,15 @@ const SharedCardView = ({ linkToken }) => {
             {/* Members */}
             {members.length > 0 && (
               <section>
-                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Members</h3>
+                <h3 className="text-xs font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wide mb-2">Members</h3>
                 <div className="flex flex-wrap gap-2">
                   {members.map(m => (
-                    <div key={m.id || m.username} className="flex items-center gap-1.5 bg-white border rounded-full pl-0.5 pr-3 py-0.5 shadow-sm">
+                    <div key={m.id || m.username} className="flex items-center gap-1.5 bg-white dark:bg-[#22272b] dark:border-slate-700 border rounded-full pl-0.5 pr-3 py-0.5 shadow-sm">
                       <Avatar className="h-6 w-6">
                         <AvatarImage src={m.avatarUrl ? `${m.avatarUrl}/30.png` : undefined} />
                         <AvatarFallback className="text-xs bg-[#0079bf] text-white">{(m.fullName || '?')[0]}</AvatarFallback>
                       </Avatar>
-                      <span className="text-xs font-medium text-gray-700">{m.fullName}</span>
+                      <span className="text-xs font-medium text-gray-700 dark:text-zinc-200">{m.fullName}</span>
                     </div>
                   ))}
                 </div>
@@ -400,7 +412,7 @@ const SharedCardView = ({ linkToken }) => {
             {/* Labels */}
             {cardData.labels?.length > 0 && (
               <section>
-                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Labels</h3>
+                <h3 className="text-xs font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wide mb-2">Labels</h3>
                 <div className="flex flex-wrap gap-1.5">
                   {cardData.labels.map(label => (
                     <span
@@ -418,10 +430,10 @@ const SharedCardView = ({ linkToken }) => {
             {/* Due date */}
             {cardData.due && (
               <section>
-                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Due Date</h3>
+                <h3 className="text-xs font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wide mb-2">Due Date</h3>
                 <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded text-sm font-medium ${
                   cardData.dueComplete ? 'bg-green-100 text-green-700' :
-                  isOverdue ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'
+                  isOverdue ? 'bg-red-100 text-red-700' : 'bg-gray-100 dark:bg-slate-700 text-zinc-700 dark:text-zinc-200'
                 }`}>
                   <Calendar className="h-3.5 w-3.5" />
                   {formatExactDate(cardData.due)}
@@ -433,15 +445,15 @@ const SharedCardView = ({ linkToken }) => {
 
             {/* Description */}
             <section>
-              <h3 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-1.5">
+              <h3 className="text-sm font-semibold text-gray-700 dark:text-zinc-200 mb-2 flex items-center gap-1.5">
                 <FileText className="h-4 w-4" /> Description
               </h3>
               {cardData.desc ? (
-                <div className="bg-white border rounded-lg p-4 text-sm text-gray-700 leading-relaxed">
+                <div className="bg-white dark:bg-[#22272b] dark:border-slate-700 border rounded-lg p-4 text-sm text-gray-700 dark:text-zinc-200 leading-relaxed">
                   <TrelloMarkdown content={cardData.desc} />
                 </div>
               ) : (
-                <p className="text-sm text-gray-400 italic bg-white border rounded-lg p-4">No description added.</p>
+                <p className="text-sm text-gray-400 dark:text-zinc-500 italic bg-white dark:bg-[#22272b] dark:border-slate-700 border rounded-lg p-4">No description added.</p>
               )}
             </section>
 
@@ -455,7 +467,7 @@ const SharedCardView = ({ linkToken }) => {
               return (
                 <section key={cl.id}>
                   <div className="flex items-center justify-between mb-1">
-                    <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
+                    <h3 className="text-sm font-semibold text-gray-700 dark:text-zinc-200 flex items-center gap-1.5">
                       <CheckSquare className="h-4 w-4" /> {cl.name}
                     </h3>
                     <div className="flex items-center gap-3">
@@ -467,17 +479,17 @@ const SharedCardView = ({ linkToken }) => {
                           {hideCompleted ? `Show completed (${done})` : 'Hide completed'}
                         </button>
                       )}
-                      <span className="text-xs text-gray-500">{pct}%</span>
+                      <span className="text-xs text-gray-500 dark:text-zinc-400">{pct}%</span>
                     </div>
                   </div>
                   <Progress value={pct} className="h-2 mb-3" />
                   <div className="space-y-1">
                     {visibleItems.map(item => (
-                      <div key={item.id} className="flex items-center gap-2.5 py-1 px-2 rounded hover:bg-gray-100">
-                        <div className={`h-4 w-4 rounded border-2 flex items-center justify-center flex-shrink-0 ${item.state === 'complete' ? 'bg-[#0079bf] border-[#0079bf]' : 'border-gray-400'}`}>
+                      <div key={item.id} className="flex items-center gap-2.5 py-1 px-2 rounded hover:bg-gray-100 dark:hover:bg-slate-700/40">
+                        <div className={`h-4 w-4 rounded border-2 flex items-center justify-center flex-shrink-0 ${item.state === 'complete' ? 'bg-[#0079bf] border-[#0079bf]' : 'border-gray-400 dark:border-slate-500'}`}>
                           {item.state === 'complete' && <span className="text-white text-[9px] font-bold">✓</span>}
                         </div>
-                        <span className={`text-sm ${item.state === 'complete' ? 'line-through text-gray-400' : 'text-gray-700'}`}>{item.name}</span>
+                        <span className={`text-sm ${item.state === 'complete' ? 'line-through text-gray-400 dark:text-zinc-500' : 'text-gray-700 dark:text-zinc-200'}`}>{item.name}</span>
                       </div>
                     ))}
                   </div>
@@ -489,7 +501,7 @@ const SharedCardView = ({ linkToken }) => {
             {(fileAttachments.length > 0 || permissions.canUpload) && (
               <section>
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
+                  <h3 className="text-sm font-semibold text-gray-700 dark:text-zinc-200 flex items-center gap-1.5">
                     <Paperclip className="h-4 w-4" /> Attachments
                   </h3>
                   {permissions.canUpload && (
@@ -511,15 +523,15 @@ const SharedCardView = ({ linkToken }) => {
                 {fileAttachments.length > 0 ? (
                   <div className="space-y-2">
                     {fileAttachments.map(att => (
-                      <div key={att.id} className="flex items-center gap-3 p-3 bg-white border rounded-lg hover:bg-gray-50">
-                        <div className="w-16 h-12 bg-gray-100 rounded flex items-center justify-center flex-shrink-0 overflow-hidden">
+                      <div key={att.id} className="flex items-center gap-3 p-3 bg-white dark:bg-[#22272b] dark:border-slate-700 border rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700/40">
+                        <div className="w-16 h-12 bg-gray-100 dark:bg-slate-700 rounded flex items-center justify-center flex-shrink-0 overflow-hidden">
                           {att.previews?.length > 0
                             ? <img src={att.previews[att.previews.length - 1].url} alt="" className="w-full h-full object-cover" />
-                            : <Paperclip className="h-5 w-5 text-gray-400" />}
+                            : <Paperclip className="h-5 w-5 text-gray-400 dark:text-zinc-500" />}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-700 truncate">{att.name}</p>
-                          <p className="text-xs text-gray-400">{att.bytes ? `${Math.round(att.bytes / 1024)} KB · ` : ''}{formatExactDate(att.date)}</p>
+                          <p className="text-sm font-medium text-gray-700 dark:text-zinc-200 truncate">{att.name}</p>
+                          <p className="text-xs text-gray-400 dark:text-zinc-500">{att.bytes ? `${Math.round(att.bytes / 1024)} KB · ` : ''}{formatExactDate(att.date)}</p>
                         </div>
                         <Button variant="outline" size="sm" asChild>
                           <a href={sharedAccess.downloadAttachment(linkToken, att.id)} target="_blank" rel="noopener noreferrer">
@@ -530,7 +542,7 @@ const SharedCardView = ({ linkToken }) => {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-gray-400 italic bg-white border rounded-lg p-4">No attachments yet. Use the button above to upload a file.</p>
+                  <p className="text-sm text-gray-400 dark:text-zinc-500 italic bg-white dark:bg-[#22272b] dark:border-slate-700 border rounded-lg p-4">No attachments yet. Use the button above to upload a file.</p>
                 )}
               </section>
             )}
@@ -538,18 +550,18 @@ const SharedCardView = ({ linkToken }) => {
             {/* Trello Card Links */}
             {trelloCardLinks.length > 0 && (
               <section>
-                <h3 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-1.5">
+                <h3 className="text-sm font-semibold text-gray-700 dark:text-zinc-200 mb-2 flex items-center gap-1.5">
                   <Link2 className="h-4 w-4" /> Trello Cards
                 </h3>
                 <div className="space-y-1.5">
                   {trelloCardLinks.map(link => (
-                    <div key={link.id} className="flex items-center gap-2.5 p-2.5 bg-white border rounded-lg hover:bg-gray-50">
+                    <div key={link.id} className="flex items-center gap-2.5 p-2.5 bg-white dark:bg-[#22272b] dark:border-slate-700 border rounded-lg hover:bg-gray-50 dark:hover:bg-slate-700/40">
                       <div className="w-8 h-8 rounded bg-[#0079bf] flex items-center justify-center flex-shrink-0">
                         <Link2 className="h-3.5 w-3.5 text-white" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-700 truncate">{link.name || renderUrl(link.url)}</p>
-                        <p className="text-xs text-gray-400">{formatExactDate(link.date)}</p>
+                        <p className="text-sm font-medium text-gray-700 dark:text-zinc-200 truncate">{link.name || renderUrl(link.url)}</p>
+                        <p className="text-xs text-gray-400 dark:text-zinc-500">{formatExactDate(link.date)}</p>
                       </div>
                       <Button variant="outline" size="sm" asChild>
                         <a href={link.url} target="_blank" rel="noopener noreferrer">
@@ -565,17 +577,17 @@ const SharedCardView = ({ linkToken }) => {
             {/* Other Links */}
             {otherLinks.length > 0 && (
               <section>
-                <h3 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-1.5">
+                <h3 className="text-sm font-semibold text-gray-700 dark:text-zinc-200 mb-2 flex items-center gap-1.5">
                   <ExternalLink className="h-4 w-4" /> Links
                 </h3>
                 <div className="space-y-1">
                   {otherLinks.map(link => (
-                    <div key={link.id} className="flex items-center gap-2 p-2 bg-white border rounded hover:bg-gray-50">
+                    <div key={link.id} className="flex items-center gap-2 p-2 bg-white dark:bg-[#22272b] dark:border-slate-700 border rounded hover:bg-gray-50 dark:hover:bg-slate-700/40">
                       <ExternalLink className="h-3.5 w-3.5 text-blue-500 flex-shrink-0" />
                       <a href={link.url} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-500 hover:underline truncate flex-1">
                         {link.name || renderUrl(link.url)}
                       </a>
-                      <span className="text-xs text-gray-400 flex-shrink-0">{formatExactDate(link.date)}</span>
+                      <span className="text-xs text-gray-400 dark:text-zinc-500 flex-shrink-0">{formatExactDate(link.date)}</span>
                     </div>
                   ))}
                 </div>
@@ -584,7 +596,7 @@ const SharedCardView = ({ linkToken }) => {
 
             {/* Activity + Comments */}
             <section>
-              <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-1.5">
+              <h3 className="text-sm font-semibold text-gray-700 dark:text-zinc-200 mb-3 flex items-center gap-1.5">
                 <History className="h-4 w-4" /> Activity
               </h3>
 
@@ -603,8 +615,8 @@ const SharedCardView = ({ linkToken }) => {
                       value={clientName}
                       onChange={e => handleNameChange(e.target.value)}
                       placeholder="Your name (required)"
-                      className={`w-full h-8 px-3 text-sm text-gray-800 placeholder:text-gray-400 border rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-300 ${
-                        !clientName.trim() ? 'border-orange-300' : 'border-gray-300'
+                      className={`w-full h-8 px-3 text-sm text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 border rounded-md bg-white dark:bg-[#22272b] focus:outline-none focus:ring-2 focus:ring-blue-300 ${
+                        !clientName.trim() ? 'border-orange-300' : 'border-gray-300 dark:border-slate-600'
                       }`}
                     />
                     {!clientName.trim() && (
@@ -614,7 +626,7 @@ const SharedCardView = ({ linkToken }) => {
                       value={comment}
                       onChange={e => setComment(e.target.value)}
                       placeholder="Write a comment…"
-                      className="w-full p-3 border rounded-lg text-sm text-gray-800 placeholder:text-gray-400 resize-none min-h-[72px] focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white"
+                      className="w-full p-3 border dark:border-slate-600 rounded-lg text-sm text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 resize-none min-h-[72px] focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white dark:bg-[#22272b]"
                     />
                     {comment.trim() && (
                       <div className="flex items-center gap-2">
@@ -646,14 +658,14 @@ const SharedCardView = ({ linkToken }) => {
                     <div key={c.id} className="flex gap-3">
                       <Avatar className="h-8 w-8 flex-shrink-0">
                         {!isShareTComment && <AvatarImage src={c.memberCreator?.avatarUrl ? `${c.memberCreator.avatarUrl}/30.png` : undefined} />}
-                        <AvatarFallback className="text-xs bg-gray-300">{displayName[0].toUpperCase()}</AvatarFallback>
+                        <AvatarFallback className="text-xs bg-gray-300 dark:bg-slate-600">{displayName[0].toUpperCase()}</AvatarFallback>
                       </Avatar>
                       <div className="flex-1">
                         <div className="flex items-baseline gap-2 mb-1">
-                          <span className="text-sm font-semibold text-gray-700">{displayName}</span>
-                          <span className="text-xs text-gray-400">{formatExactDate(c.date)}</span>
+                          <span className="text-sm font-semibold text-gray-700 dark:text-zinc-200">{displayName}</span>
+                          <span className="text-xs text-gray-400 dark:text-zinc-500">{formatExactDate(c.date)}</span>
                         </div>
-                        <div className="p-3 bg-white border rounded-lg text-sm text-gray-700">
+                        <div className="p-3 bg-white dark:bg-[#22272b] dark:border-slate-700 border rounded-lg text-sm text-gray-700 dark:text-zinc-200">
                           <TrelloMarkdown content={body} />
                         </div>
                       </div>
@@ -669,15 +681,15 @@ const SharedCardView = ({ linkToken }) => {
                     <div key={action.id} className="flex items-start gap-2 py-1.5 text-sm">
                       <Avatar className="h-6 w-6 flex-shrink-0">
                         <AvatarImage src={action.memberCreator?.avatarUrl ? `${action.memberCreator.avatarUrl}/30.png` : undefined} />
-                        <AvatarFallback className="text-[10px] bg-gray-200">{(action.memberCreator?.fullName || '?')[0]}</AvatarFallback>
+                        <AvatarFallback className="text-[10px] bg-gray-200 dark:bg-slate-600">{(action.memberCreator?.fullName || '?')[0]}</AvatarFallback>
                       </Avatar>
                       <div className="flex-1 min-w-0">
-                        <span className="text-gray-600">{describeAction(action)}</span>
+                        <span className="text-gray-600 dark:text-zinc-400">{describeAction(action)}</span>
                         {action.data?.text && (
-                          <p className="text-xs text-gray-400 truncate mt-0.5">{action.data.text.substring(0, 100)}</p>
+                          <p className="text-xs text-gray-400 dark:text-zinc-500 truncate mt-0.5">{action.data.text.substring(0, 100)}</p>
                         )}
                       </div>
-                      <span className="text-xs text-gray-400 flex-shrink-0">{formatExactDate(action.date)}</span>
+                      <span className="text-xs text-gray-400 dark:text-zinc-500 flex-shrink-0">{formatExactDate(action.date)}</span>
                     </div>
                   ))}
                 </div>
@@ -690,20 +702,20 @@ const SharedCardView = ({ linkToken }) => {
 
             {permissions.canComment && (
               <div>
-                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Your Name</h4>
+                <h4 className="text-xs font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wide mb-1.5">Your Name</h4>
                 <input
                   type="text"
                   value={clientName}
                   onChange={e => handleNameChange(e.target.value)}
                   placeholder="Enter your name"
-                  className="w-full h-8 px-2 text-sm text-gray-800 placeholder:text-gray-400 border rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-300"
+                  className="w-full h-8 px-2 text-sm text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 border dark:border-slate-600 rounded-md bg-white dark:bg-[#22272b] focus:outline-none focus:ring-2 focus:ring-blue-300"
                 />
               </div>
             )}
 
             {permissions.canUpload && (
               <div>
-                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Add Attachment</h4>
+                <h4 className="text-xs font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wide mb-1.5">Add Attachment</h4>
                 <input type="file" id="att-upload" className="hidden" onChange={handleUploadAttachment} />
                 <Button
                   variant="outline"
@@ -720,12 +732,12 @@ const SharedCardView = ({ linkToken }) => {
 
             {permissions.canSetDueDate && (
               <div>
-                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Set Due Date</h4>
+                <h4 className="text-xs font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wide mb-1.5">Set Due Date</h4>
                 <input
                   type="datetime-local"
                   value={newDueDate}
                   onChange={e => setNewDueDate(e.target.value)}
-                  className="w-full text-xs text-gray-800 border rounded-md p-1.5 mb-1.5 bg-white"
+                  className="w-full text-xs text-slate-800 dark:text-slate-100 border dark:border-slate-600 rounded-md p-1.5 mb-1.5 bg-white dark:bg-[#22272b]"
                 />
                 <Button size="sm" className="w-full text-xs" onClick={handleUpdateDueDate} disabled={!newDueDate || isSubmitting}>
                   Update
@@ -734,17 +746,17 @@ const SharedCardView = ({ linkToken }) => {
             )}
 
             <div className="border-t pt-3">
-              <Button variant="ghost" size="sm" className="w-full text-xs text-gray-500 justify-start" onClick={fetchCardData}>
+              <Button variant="ghost" size="sm" className="w-full text-xs text-gray-500 dark:text-zinc-400 justify-start" onClick={fetchCardData}>
                 <RefreshCw className="h-3 w-3 mr-1.5" /> Refresh
               </Button>
-              <p className="text-[10px] text-gray-400 text-center mt-1">
+              <p className="text-[10px] text-gray-400 dark:text-zinc-500 text-center mt-1">
                 {format(lastRefreshed, 'h:mm a')}
               </p>
             </div>
           </div>
         </div>
 
-        <p className="text-center text-xs text-gray-400 mt-8">Shared via ShareT</p>
+        <p className="text-center text-xs text-gray-400 dark:text-zinc-500 mt-8">Shared via ShareT</p>
       </div>
     </div>
   );

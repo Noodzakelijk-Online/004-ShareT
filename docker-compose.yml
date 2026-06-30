@@ -15,20 +15,72 @@ services:
       - PORT=5005
       - DATA_DIR=/app/backend/data
     # Resource limits (local-first optimization)
-    mem_limit: 512m
-    memswap_limit: 512m
+    # NOTE: 512m was too tight for Node + build + PouchDB under load and caused
+    # OOM-kills that crash-looped the container ("whole app down, no reboot").
+    # 1g gives headroom; the memswap cap is removed so a brief spike swaps
+    # instead of being killed outright.
+    mem_limit: 1g
     cpus: '1.5'
+    labels:
+      # Watched by the autoheal service below: if this container goes
+      # "unhealthy" (healthcheck failing), autoheal force-restarts it.
+      # Plain `restart: always` only restarts on EXIT, not on unhealthy.
+      - "autoheal=true"
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5005/health"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 15s
+      start_period: 20s
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
+
+  # ── ngrok tunnel, supervised by Docker ───────────────────────────────
+  # Replaces the old unsupervised `cmd /k ngrok ...` window. The public tunnel
+  # now restarts automatically just like the app does, and reaches the app via
+  # the compose network at host "sharet" (the service name).
+  #
+  # Free ngrok allows only ONE agent session at a time, so redeploy.bat / the
+  # watchdog must NOT also launch ngrok in a window — this service owns it.
+  ngrok:
+    image: ngrok/ngrok:latest
+    container_name: sharet-ngrok
+    restart: always
+    depends_on:
+      - sharet
+    # NGROK_AUTHTOKEN comes from .env.docker via env_file — the ngrok image
+    # reads it from its environment. (Don't add an `environment:` override here:
+    # it would win over env_file and blank the token.)
+    env_file:
+      - .env.docker
+    # Static free domain — keep in sync with PUBLIC_URL in .env.docker.
+    command:
+      - "http"
+      - "sharet:5005"
+      - "--domain=nonhyperbolic-antony-unresentful.ngrok-free.dev"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ── autoheal: restarts any container labeled autoheal=true when it goes
+  #    "unhealthy". This catches a hung/OOM'd app that restart:always alone
+  #    would leave sitting in an unhealthy state instead of restarting.
+  autoheal:
+    image: willfarrell/autoheal:latest
+    container_name: sharet-autoheal
+    restart: always
+    environment:
+      - AUTOHEAL_CONTAINER_LABEL=autoheal
+      - AUTOHEAL_INTERVAL=15
+      - AUTOHEAL_START_PERIOD=30
+    volumes:
+      # Lets autoheal talk to the Docker engine to restart sick containers.
+      - /var/run/docker.sock:/var/run/docker.sock
 
 volumes:
   sharet-data:

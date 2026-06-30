@@ -4,7 +4,26 @@
  * Uses PouchDB for platform-agnostic data storage
  */
 
-const { SharedLink, AccessLog, generateShareId } = require('../db/pouchdb');
+const { SharedLink, AccessLog, generateShareId, TrelloConnection } = require('../db/pouchdb');
+
+const TRELLO_API_BASE = 'https://api.trello.com/1';
+
+// Resolve a card identifier (full 24-char id OR the 8-char shortLink found in
+// trello.com/c/... URLs) to its canonical Trello card. Both forms point to the
+// same card, so without this the duplicate check can be bypassed by creating
+// one link via the card picker and another via a pasted URL.
+async function resolveTrelloCard(userId, cardIdOrShortLink) {
+  try {
+    const connection = await TrelloConnection.findByUserId(userId);
+    if (!connection?.trelloToken) return null;
+    const url = `${TRELLO_API_BASE}/cards/${cardIdOrShortLink}?key=${process.env.TRELLO_API_KEY}&token=${connection.trelloToken}&fields=id,shortLink,name,idBoard`;
+    const response = await fetch(url);
+    if (!response.ok) return null;
+    return await response.json();
+  } catch {
+    return null;
+  }
+}
 
 // Get all shares for user
 exports.getShares = async (req, res) => {
@@ -43,19 +62,35 @@ exports.getShares = async (req, res) => {
 // Create new share
 exports.createShare = async (req, res) => {
   try {
-    const { cardId, cardName, boardId, boardName, permissions, allowedEmails, expiresAt, password, guestTrelloToken } = req.body;
+    let { cardId, cardName, boardId, boardName, permissions, allowedEmails, expiresAt, password, guestTrelloToken } = req.body;
     const userId = req.user._id || req.user.id;
+
+    // Canonicalize the card identifier so the duplicate check can't be bypassed
+    // by referencing the same card via its URL shortLink vs its full id.
+    const trelloCard = await resolveTrelloCard(userId, cardId);
+    if (trelloCard) {
+      cardId = trelloCard.id;
+      if (!cardName || /trello\.com/i.test(cardName)) cardName = trelloCard.name;
+      if (!boardId) boardId = trelloCard.idBoard;
+    }
 
     // Prevent duplicate links: if an active link to this card already exists,
     // return it instead of creating a new one (no credit is spent).
-    const existing = await SharedLink.findActiveByUserAndCard(userId, cardId);
-    if (existing) {
-      return res.status(200).json({
-        success: true,
-        duplicate: true,
-        message: 'An active share link already exists for this card.',
-        data: existing
-      });
+    // Check both the canonical id and the shortLink to also catch links
+    // created before identifiers were canonicalized.
+    const idsToCheck = trelloCard
+      ? [...new Set([trelloCard.id, trelloCard.shortLink])]
+      : [cardId];
+    for (const id of idsToCheck) {
+      const existing = await SharedLink.findActiveByUserAndCard(userId, id);
+      if (existing) {
+        return res.status(200).json({
+          success: true,
+          duplicate: true,
+          message: 'An active share link already exists for this card.',
+          data: existing
+        });
+      }
     }
 
     const share = await SharedLink.create({
