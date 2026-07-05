@@ -18,13 +18,14 @@ echo  It will silently check every 2 minutes (and at logon) that
 echo  Docker Desktop and ShareT are running, and restart them if not.
 echo.
 
+set "ERR=0"
 :: Repeating check every 2 minutes (also covers post-reboot within 2 min)
-schtasks /Create /TN "ShareT Watchdog" /TR "wscript.exe \"%VBS%\"" /SC MINUTE /MO 2 /RL LIMITED /F
+schtasks /Create /TN "ShareT Watchdog" /TR "wscript.exe \"%VBS%\"" /SC MINUTE /MO 2 /RL LIMITED /F || set "ERR=1"
 :: Instant start right after the user logs in
-schtasks /Create /TN "ShareT Watchdog (logon)" /TR "wscript.exe \"%VBS%\"" /SC ONLOGON /RL LIMITED /F
+schtasks /Create /TN "ShareT Watchdog (logon)" /TR "wscript.exe \"%VBS%\"" /SC ONLOGON /RL LIMITED /F || set "ERR=1"
 
 echo.
-if !errorlevel! neq 0 (
+if "%ERR%"=="1" (
     echo  [!] Something went wrong registering the task. See messages above.
 ) else (
     echo  [OK] Watchdog installed.
