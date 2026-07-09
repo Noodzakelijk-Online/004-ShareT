@@ -6,6 +6,7 @@
 const express = require('express');
 const router = express.Router();
 const sharedAccessController = require('../controllers/sharedAccessController');
+const sharedCommentController = require('../controllers/sharedCommentController');
 
 // Public routes - no authentication required
 router.get('/:shareId', sharedAccessController.getSharedCard);
@@ -21,7 +22,7 @@ router.post('/:shareId/attachments', sharedAccessController.uploadAttachment);
 // Comments & Actions — Fix #12, #13
 router.get('/:shareId/comments', sharedAccessController.getSharedComments);
 router.get('/:shareId/actions', sharedAccessController.getSharedActions);
-router.post('/:shareId/comments', sharedAccessController.addComment);
+router.post('/:shareId/comments', sharedCommentController.addComment);
 
 // Checklists — Fix #7
 router.get('/:shareId/checklists', sharedAccessController.getSharedChecklists);
