@@ -1,85 +1,97 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2, Mail, CheckCircle, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
-import axios from 'axios';
+import { sharedAccess } from '../api';
+import { clearShareParticipant, readShareParticipant, writeShareParticipant } from '../lib/shareParticipant';
 
 const SharedLinkAccess = ({ linkToken }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [linkInfo, setLinkInfo] = useState(null);
-  const [email, setEmail] = useState('');
+  const [storedParticipant] = useState(() => readShareParticipant(linkToken));
+  const [name, setName] = useState(() => storedParticipant?.participant?.name || '');
+  const [email, setEmail] = useState(() => storedParticipant?.participant?.email || '');
   const [verificationSent, setVerificationSent] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
   const [accessGranted, setAccessGranted] = useState(false);
   const [error, setError] = useState(null);
+  const [verificationError, setVerificationError] = useState('');
+  const [identityVerified, setIdentityVerified] = useState(false);
   const [secretInput, setSecretInput] = useState('');
   const [secretError, setSecretError] = useState('');
   const [checkingSecret, setCheckingSecret] = useState(false);
-  const [secretPassed, setSecretPassed] = useState(false);
+  const [secretPassed, setSecretPassed] = useState(() => sessionStorage.getItem(`shareT_pw_${linkToken}`) === '1');
   
-  const API_URL = import.meta.env.VITE_API_URL || '/api';
-  const toCardUrl = () => {
-    const name = new URLSearchParams(window.location.search).get('name');
-    return name
-      ? `/shared/${linkToken}/card?name=${encodeURIComponent(name)}`
-      : `/shared/${linkToken}/card`;
-  };
-  
-  useEffect(() => {
-    // Fetch link info when component mounts
-    fetchLinkInfo();
-  }, [linkToken]);
-  
-  const fetchLinkInfo = async () => {
+  const cardUrl = `/shared/${linkToken}/card`;
+
+  const fetchLinkInfo = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await axios.get(`${API_URL}/shared-access/${linkToken}`);
-      if (response.data.linkInfo) {
-        const info = response.data.linkInfo;
+      const response = await sharedAccess.getCard(linkToken);
+      if (response.linkInfo) {
+        const info = response.linkInfo;
         setLinkInfo(info);
-        // Skip all gates if no restrictions
-        if (!info.requiresEmail && !info.requiresPassword) {
-          window.location.href = toCardUrl();
+        const identityRequired = info.requiresParticipantIdentity || info.requiresEmail;
+        let hasVerifiedIdentity = !identityRequired;
+        const savedParticipant = readShareParticipant(linkToken);
+
+        if (identityRequired && savedParticipant?.participantToken) {
+          try {
+            const status = await sharedAccess.getParticipantStatus(linkToken, savedParticipant.participantToken);
+            writeShareParticipant(linkToken, savedParticipant.participantToken, status.participant);
+            setName(status.participant.name);
+            setEmail(status.participant.email);
+            setIdentityVerified(true);
+            hasVerifiedIdentity = true;
+          } catch {
+            clearShareParticipant(linkToken);
+          }
+        }
+
+        if (hasVerifiedIdentity && (!info.requiresPassword || secretPassed)) {
+          window.location.href = cardUrl;
         }
       } else {
         throw new Error('Invalid link or link information not found');
       }
     } catch (error) {
       console.error('Error fetching link info:', error);
-      setError(error.response?.data?.error || error.message || 'Failed to load link information');
+      setError(error.message || 'Failed to load link information');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [cardUrl, linkToken, secretPassed]);
+
+  useEffect(() => {
+    fetchLinkInfo();
+  }, [fetchLinkInfo]);
   
   const handleSendVerification = async () => {
     setIsVerifying(true);
-    setError(null);
+    setVerificationError('');
     
     try {
-      const response = await axios.post(`${API_URL}/shared-access/${linkToken}/verify-email`, {
-        email
-      });
+      const response = await sharedAccess.requestVerification(linkToken, { name, email });
       
-      if (response.data.success) {
+      if (response.success) {
         setVerificationSent(true);
         toast.success("Verification code sent to your email");
         
         // For development, if code is returned directly
-        if (response.data.code) {
-          setVerificationCode(response.data.code);
+        if (response.code) {
+          setVerificationCode(response.code);
         }
       } else {
-        throw new Error(response.data.error || 'Failed to send verification code');
+        throw new Error(response.error || 'Failed to send verification code');
       }
     } catch (error) {
       console.error('Error sending verification:', error);
-      setError(error.response?.data?.error || error.message || 'Failed to send verification code');
+      setVerificationError(error.message || 'Failed to send verification code');
     } finally {
       setIsVerifying(false);
     }
@@ -87,28 +99,31 @@ const SharedLinkAccess = ({ linkToken }) => {
   
   const handleVerifyCode = async () => {
     setIsVerifying(true);
-    setError(null);
+    setVerificationError('');
     
     try {
-      const response = await axios.post(`${API_URL}/shared-access/${linkToken}/confirm-verification`, {
+      const response = await sharedAccess.confirmVerification(linkToken, {
+        name,
         email,
         code: verificationCode
       });
       
-      if (response.data.success) {
+      if (response.success) {
+        writeShareParticipant(linkToken, response.participantToken, response.participant);
+        setIdentityVerified(true);
         setAccessGranted(true);
-        toast.success("Access granted!");
+        toast.success("Email verified — reply notifications are active");
         
         // Redirect to card view
         setTimeout(() => {
-          window.location.href = toCardUrl();
+          window.location.href = cardUrl;
         }, 1000);
       } else {
-        throw new Error(response.data.error || 'Invalid verification code');
+        throw new Error(response.error || 'Invalid verification code');
       }
     } catch (error) {
       console.error('Error verifying code:', error);
-      setError(error.response?.data?.error || error.message || 'Failed to verify code');
+      setVerificationError(error.message || 'Failed to verify code');
     } finally {
       setIsVerifying(false);
     }
@@ -147,18 +162,16 @@ const SharedLinkAccess = ({ linkToken }) => {
     setCheckingSecret(true);
     setSecretError('');
     try {
-      const response = await axios.post(`${API_URL}/shared-access/${linkToken}/verify-password`, {
-        password: secretInput
-      });
-      if (response.data.success) {
+      const response = await sharedAccess.verifyPassword(linkToken, secretInput);
+      if (response.success) {
         sessionStorage.setItem(`shareT_pw_${linkToken}`, '1');
         setSecretPassed(true);
-        if (!linkInfo.requiresEmail) {
-          window.location.href = toCardUrl();
+        if ((!linkInfo.requiresParticipantIdentity && !linkInfo.requiresEmail) || identityVerified) {
+          window.location.href = cardUrl;
         }
       }
     } catch (err) {
-      setSecretError(err.response?.data?.message || 'Incorrect secret, please try again.');
+      setSecretError(err.message || 'Incorrect secret, please try again.');
     } finally {
       setCheckingSecret(false);
     }
@@ -174,7 +187,7 @@ const SharedLinkAccess = ({ linkToken }) => {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p>The shared link you're trying to access doesn't exist or has been revoked.</p>
+          <p>The shared link you’re trying to access doesn’t exist or has been revoked.</p>
         </CardContent>
       </Card>
     );
@@ -217,14 +230,28 @@ const SharedLinkAccess = ({ linkToken }) => {
   return (
     <Card className="w-full max-w-md mx-auto">
       <CardHeader>
-        <CardTitle>Access Shared Trello Card</CardTitle>
+        <CardTitle>Join this ShareT conversation</CardTitle>
         <CardDescription>
-          You're accessing {linkInfo.trelloCardName} from {linkInfo.trelloBoardName}
+          Verify your email once to comment on {linkInfo.trelloCardName} and receive replies.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {!verificationSent ? (
           <div className="space-y-4">
+            <div>
+              <Label htmlFor="name">Your Name</Label>
+              <Input
+                id="name"
+                type="text"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder="Enter your name"
+                className="mt-1"
+                maxLength={80}
+                disabled={isVerifying}
+                autoComplete="name"
+              />
+            </div>
             <div>
               <Label htmlFor="email">Email Address</Label>
               <div className="flex mt-1">
@@ -236,8 +263,12 @@ const SharedLinkAccess = ({ linkToken }) => {
                   placeholder="Enter your email address"
                   className="flex-1"
                   disabled={isVerifying}
+                  autoComplete="email"
                 />
               </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                ShareT emails you when the card owner replies after your comment.
+              </p>
               {linkInfo.requiresEmail && (
                 <p className="text-xs text-muted-foreground mt-1">
                   This link is restricted to specific email addresses
@@ -247,7 +278,7 @@ const SharedLinkAccess = ({ linkToken }) => {
             
             <Button 
               onClick={handleSendVerification} 
-              disabled={!email || isVerifying}
+              disabled={!name.trim() || !email.trim() || isVerifying}
               className="w-full"
             >
               {isVerifying ? (
@@ -314,13 +345,19 @@ const SharedLinkAccess = ({ linkToken }) => {
             )}
           </div>
         )}
+        {verificationError && (
+          <p className="text-sm text-destructive flex items-start gap-2">
+            <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+            {verificationError}
+          </p>
+        )}
       </CardContent>
       <CardFooter className="flex flex-col space-y-2">
         <div className="text-xs text-muted-foreground">
           {linkInfo.permissionLevel === 'edit' ? (
-            <span>You'll have edit access to this card</span>
+            <span>You’ll have edit access to this card</span>
           ) : (
-            <span>You'll have view-only access to this card</span>
+            <span>Your verified email keeps this conversation connected</span>
           )}
         </div>
         {linkInfo.expiresAt && (

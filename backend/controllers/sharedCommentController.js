@@ -14,8 +14,9 @@
  * delivery fallback, but Trello intentionally suppresses self-notifications.
  */
 
-const { SharedLink, TrelloConnection, AccessLog } = require('../db/pouchdb');
+const { SharedLink, TrelloConnection, AccessLog, ShareParticipant, CommentThread } = require('../db/pouchdb');
 const { sendShareTUpdateNotification } = require('../utils/notificationService');
+const { ensureTrelloWebhook } = require('../services/trelloWebhookService');
 
 const TRELLO_API_BASE = 'https://api.trello.com/1';
 const MAX_AUTHOR_NAME_LENGTH = 80;
@@ -224,7 +225,7 @@ function buildNotificationStatus() {
 // relay token, directly mentions the owner, and can also send an email fallback.
 exports.addComment = async (req, res) => {
   try {
-    const { text, authorName, authorEmail } = req.body;
+    const { text, participantToken } = req.body;
 
     if (!text || !text.trim()) {
       return res.status(400).json({
@@ -241,6 +242,20 @@ exports.addComment = async (req, res) => {
         message: 'Comments not allowed'
       });
     }
+
+    if (!share.isActive || (share.expiresAt && new Date(share.expiresAt) < new Date())) {
+      return res.status(403).json({ success: false, message: 'This share link is no longer active' });
+    }
+
+    const participant = await ShareParticipant.findByAccessToken(req.params.shareId, participantToken);
+    if (!participant) {
+      return res.status(401).json({
+        success: false,
+        message: 'Verify your email address before commenting'
+      });
+    }
+    const authorName = participant.name;
+    const authorEmail = participant.email;
 
     const connection = await TrelloConnection.findByUserId(share.userId);
     if (!connection) {
@@ -315,6 +330,34 @@ exports.addComment = async (req, res) => {
       action: 'comment'
     });
 
+    let replyTracking = { enabled: false, reason: 'comment-action-id-missing' };
+    if (comment.id) {
+      try {
+        const thread = await CommentThread.create({
+          shareId: req.params.shareId,
+          cardId: share.cardId,
+          trelloCommentId: comment.id,
+          participant,
+          commentText: text.trim(),
+          commentDate: comment.date
+        });
+        replyTracking = { enabled: true, threadId: thread._id, email: participant.email };
+      } catch (error) {
+        console.error('Unable to create ShareT reply tracker:', error);
+        replyTracking = { enabled: false, reason: 'tracking-storage-failed' };
+      }
+    }
+
+    await ShareParticipant.touch(participant);
+
+    let webhook = { enabled: false, reason: 'registration-not-attempted' };
+    try {
+      webhook = await ensureTrelloWebhook({ share, connection });
+    } catch (error) {
+      console.error('Unable to enable immediate Trello reply detection:', error);
+      webhook = { enabled: false, reason: 'registration-failed', error: error.message };
+    }
+
     const trelloNotification = assessTrelloNotification({
       comment,
       candidate: postedWith,
@@ -351,7 +394,9 @@ exports.addComment = async (req, res) => {
         relayAssignment: postedWith.relayAssignment,
         bellExpected: trelloNotification.bellExpected,
         warning: trelloNotification.warning
-      }
+      },
+      replyTracking,
+      webhook
     });
   } catch (error) {
     console.error('Shared comment error:', error);

@@ -77,7 +77,40 @@ There are therefore two supported modes:
 - Shared relay: one ShareT Trello account, compact bold freelancer name in the comment, and a normal owner notification.
 - Per-freelancer relay: native Trello author name plus a normal owner notification, still without requiring the freelancer to use Trello.
 
-For extra reliability, configure email fallback notifications:
+## Freelancer email verification and reply tracking
+
+Comment-enabled links now require the freelancer to enter a name and verify an email address on first access. ShareT remembers the verified browser session for that link and associates each freelancer comment with the verified email.
+
+The Trello owner can reply normally in Trello web, desktop, or the mobile app. ShareT creates a signed webhook for each active comment-enabled card and processes the owner's `commentCard` action immediately. No Power-Up, special reply link, or ShareT reply screen is required.
+
+Reply routing is deliberately conservative:
+
+- If one freelancer is awaiting a reply on the card, that person is notified automatically.
+- If several are waiting, a normal name mention such as `Kamal, tonight would be great` selects that freelancer.
+- If several are waiting and no unique name is present, ShareT sends nothing to avoid exposing a reply to the wrong person. The event appears in the Admin tab for one-click resolution.
+
+Webhook requests are verified with `TRELLO_API_SECRET`, persisted by Trello action ID, and processed once. Failed mail is retried with exponential backoff. Multiple pending updates from the same selected freelancer are combined into one reply email.
+
+While the ShareT page is open, comments refresh every 30 seconds and immediately when the tab becomes visible again. A server-side monitor checks pending conversations every 60 seconds by default as a recovery path, so reply emails still work if a webhook is delayed or unavailable.
+
+`PUBLIC_URL` must be a stable, publicly reachable URL for Trello's callback validation. ShareT derives the webhook URL as `${PUBLIC_URL}/api/trello-webhooks/callback`. Set `TRELLO_WEBHOOK_CALLBACK_URL` only when the callback must use a different public origin or path.
+
+Configure SMTP for verification codes and freelancer reply emails. The Docker deployment uses the existing `EMAIL_*` variables:
+
+```env
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_SECURE=false
+EMAIL_USER=your_gmail@gmail.com
+EMAIL_PASSWORD=your_gmail_app_password
+EMAIL_FROM=ShareT <your_gmail@gmail.com>
+SHARET_REPLY_POLL_INTERVAL_MS=60000
+SHARET_PARTICIPANT_SESSION_DAYS=90
+```
+
+The backend also accepts the equivalent `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, and `SMTP_FROM` names.
+
+For extra owner-side reliability, optionally configure the existing email fallback:
 
 ```env
 SHARET_NOTIFY_EMAIL_TO=you@example.com
@@ -89,4 +122,4 @@ SMTP_PASS=...
 SMTP_FROM=ShareT <notifications@example.com>
 ```
 
-This keeps the Trello card as the source of truth while also making sure important freelancer updates do not depend only on Trello's notification bell.
+This keeps the Trello card as the source of truth while making both sides of the conversation independently trackable.

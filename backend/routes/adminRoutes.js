@@ -2,17 +2,39 @@ const express = require('express');
 const router = express.Router();
 const os = require('os');
 const { protect, adminOnly } = require('../middleware/auth');
-const { getStats, User, SharedLink } = require('../db/pouchdb');
-const { getStats: getCacheStats } = require('../utils/cache');
+const { getStats, User, SharedLink, CommentThread, ReplyEvent, TrelloWebhook } = require('../db/pouchdb');
+const { getStats: getCacheStats, clearAll: clearCache } = require('../utils/cache');
 const { getNotificationStatus } = require('../controllers/sharedCommentController');
+const { hasEmailTransport } = require('../utils/notificationService');
+const { getWebhookReadiness } = require('../services/trelloWebhookService');
+const { resolveAmbiguousReply } = require('../services/replyNotificationService');
 
 router.use(protect);
 router.use(adminOnly);
 
+router.get('/db/stats', async (req, res) => {
+  try {
+    res.json({ success: true, stats: await getStats() });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+router.post('/cache/clear', (req, res) => {
+  clearCache();
+  res.json({ success: true, message: 'All caches cleared' });
+});
+
 // GET /api/admin/status
 router.get('/status', async (req, res) => {
   try {
-    const [dbStats, cacheStats] = await Promise.all([getStats(), Promise.resolve(getCacheStats())]);
+    const [dbStats, cacheStats, pendingThreads, ambiguousEvents, webhooks] = await Promise.all([
+      getStats(),
+      Promise.resolve(getCacheStats()),
+      CommentThread.findAllPending(),
+      ReplyEvent.findAmbiguous(),
+      TrelloWebhook.findAll()
+    ]);
     const mem = process.memoryUsage();
     res.json({
       success: true,
@@ -24,6 +46,17 @@ router.get('/status', async (req, res) => {
         timestamp: new Date().toISOString(),
         publicUrl: process.env.PUBLIC_URL || null,
         trelloNotifications: getNotificationStatus(),
+        freelancerReplies: {
+          emailConfigured: hasEmailTransport(),
+          backgroundPollIntervalMs: Math.max(15000, Number(process.env.SHARET_REPLY_POLL_INTERVAL_MS || 60000)),
+          webhook: {
+            ...getWebhookReadiness(),
+            activeCards: webhooks.filter(webhook => webhook.active).length,
+            failedCards: webhooks.filter(webhook => !webhook.active).length
+          },
+          pendingThreads: pendingThreads.length,
+          ambiguousReplies: ambiguousEvents.length
+        },
         memory: {
           processUsedMB: Math.round(mem.heapUsed / 1024 / 1024),
           processTotalMB: Math.round(mem.heapTotal / 1024 / 1024),
@@ -43,6 +76,56 @@ router.get('/status', async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// GET /api/admin/freelancer-replies
+router.get('/freelancer-replies', async (req, res) => {
+  try {
+    const [pendingThreads, ambiguousEvents, webhooks] = await Promise.all([
+      CommentThread.findAllPending(),
+      ReplyEvent.findAmbiguous(),
+      TrelloWebhook.findAll()
+    ]);
+    res.json({
+      success: true,
+      data: {
+        pendingThreads: pendingThreads.length,
+        webhook: {
+          ...getWebhookReadiness(),
+          activeCards: webhooks.filter(webhook => webhook.active).length,
+          failedCards: webhooks.filter(webhook => !webhook.active).length
+        },
+        ambiguous: ambiguousEvents.map(event => ({
+          id: event._id,
+          trelloActionId: event.trelloActionId,
+          cardId: event.cardId,
+          cardName: event.cardName,
+          ownerName: event.ownerName,
+          replyText: event.replyText,
+          replyDate: event.replyDate,
+          candidates: event.candidates || [],
+          createdAt: event.createdAt
+        }))
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// POST /api/admin/freelancer-replies/:eventId/resolve
+router.post('/freelancer-replies/:eventId/resolve', async (req, res) => {
+  try {
+    const participantEmail = String(req.body.participantEmail || '').trim().toLowerCase();
+    if (!participantEmail) {
+      return res.status(400).json({ success: false, message: 'participantEmail is required' });
+    }
+    const result = await resolveAmbiguousReply(req.params.eventId, participantEmail);
+    res.json({ success: true, data: result });
+  } catch (err) {
+    const status = /not found/i.test(err.message) ? 404 : 500;
+    res.status(status).json({ success: false, message: err.message });
   }
 });
 
