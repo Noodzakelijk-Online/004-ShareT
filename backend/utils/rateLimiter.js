@@ -41,6 +41,34 @@ const uploadLimiter = new RateLimiterMemory({
   blockDuration: 60 * 5 // block for 5 minutes
 });
 
+const verificationLimiter = new RateLimiterMemory({
+  points: 5,
+  duration: 60 * 15,
+  blockDuration: 60 * 15
+});
+
+const verificationRateLimit = async (req, res, next) => {
+  const email = String(req.body?.email || '').trim().toLowerCase();
+  const key = `verify_${req.ip}_${req.params.shareId || ''}_${email}`;
+  try {
+    const result = await verificationLimiter.consume(key);
+    res.set({
+      'X-RateLimit-Limit': verificationLimiter.points,
+      'X-RateLimit-Remaining': result.remainingPoints,
+      'X-RateLimit-Reset': new Date(Date.now() + result.msBeforeNext).toISOString()
+    });
+    next();
+  } catch (result) {
+    const retryAfter = Math.round(result.msBeforeNext / 1000) || 1;
+    res.set({ 'Retry-After': String(retryAfter), 'X-RateLimit-Remaining': 0 });
+    res.status(429).json({
+      success: false,
+      message: `Too many verification emails. Please try again in ${retryAfter} seconds.`,
+      retryAfter
+    });
+  }
+};
+
 /**
  * Create rate limiter middleware
  * @param {RateLimiterMemory} limiter - The rate limiter instance
@@ -91,6 +119,7 @@ module.exports = {
   trelloRateLimit: createRateLimiterMiddleware(trelloLimiter, 'trello_'),
   sharedLinkRateLimit: createRateLimiterMiddleware(sharedLinkLimiter, 'shared_'),
   uploadRateLimit: createRateLimiterMiddleware(uploadLimiter, 'upload_'),
+  verificationRateLimit,
   
   // Raw limiters for custom use
   limiters: {
@@ -98,7 +127,8 @@ module.exports = {
     auth: authLimiter,
     trello: trelloLimiter,
     sharedLink: sharedLinkLimiter,
-    upload: uploadLimiter
+    upload: uploadLimiter,
+    verification: verificationLimiter
   },
   
   // Factory function for custom limiters

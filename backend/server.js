@@ -31,7 +31,7 @@ const { initDatabases, setupSync, closeAll, getStats } = require('./db/pouchdb')
 // Import optimized utilities (GitHub Gems)
 const { logger, httpLogger, loggers } = require('./utils/logger');
 const { getStats: getCacheStats, clearAll: clearCache } = require('./utils/cache');
-const { apiRateLimit, authRateLimit } = require('./utils/rateLimiter');
+const { apiRateLimit, authRateLimit, sharedLinkRateLimit } = require('./utils/rateLimiter');
 const { errorResponseSchema, sendFastJSON } = require('./utils/jsonSerializer');
 
 // Import routes
@@ -42,7 +42,9 @@ const sharedAccessRoutes = require('./routes/sharedAccessRoutes');
 const resourceRoutes = require('./routes/resourceRoutes');
 const billingRoutes = require('./routes/billingRoutes');
 const adminRoutes = require('./routes/adminRoutes');
+const trelloWebhookRoutes = require('./routes/trelloWebhookRoutes');
 const { startReplyNotificationMonitor, stopReplyNotificationMonitor } = require('./services/replyNotificationService');
+const { reconcileActiveTrelloWebhooks } = require('./services/trelloWebhookService');
 
 // Create Express app
 const app = express();
@@ -115,13 +117,20 @@ app.use(cors({
     if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
       callback(null, true);
     } else {
-      callback(null, true);
+      callback(new Error('Origin is not allowed by ShareT CORS policy'));
     }
   },
   credentials: true
 }));
 
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({
+  limit: '10mb',
+  verify: (req, res, buffer) => {
+    if (req.originalUrl.startsWith('/api/trello-webhooks/')) {
+      req.rawBody = Buffer.from(buffer);
+    }
+  }
+}));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Session configuration (using memory store for simplicity)
@@ -184,31 +193,15 @@ app.get('/health', async (req, res) => {
   res.status(dbInitialized ? 200 : 503).json(health);
 });
 
-// Database stats endpoint
-app.get('/api/db/stats', async (req, res) => {
-  try {
-    const stats = await getStats();
-    res.json({ success: true, stats });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// Cache management endpoint
-app.post('/api/admin/cache/clear', (req, res) => {
-  clearCache();
-  logger.info('Cache cleared by admin');
-  res.json({ success: true, message: 'All caches cleared' });
-});
-
 // API Routes with rate limiting
 app.use('/api/auth', authRateLimit, authRoutes);
 app.use('/api/trello', apiRateLimit, trelloRoutes);
 app.use('/api/shared-links', apiRateLimit, sharedLinkRoutes);
-app.use('/api/shared-access', apiRateLimit, sharedAccessRoutes);
+app.use('/api/shared-access', sharedLinkRateLimit, sharedAccessRoutes);
 app.use('/api/resources', apiRateLimit, resourceRoutes);
 app.use('/api/billing', apiRateLimit, billingRoutes);
 app.use('/api/admin', apiRateLimit, adminRoutes);
+app.use('/api/trello-webhooks', trelloWebhookRoutes);
 
 // Serve Trello Power-Up static files
 const powerUpPath = path.join(__dirname, '..', 'power-up');
@@ -343,6 +336,9 @@ const startServer = async () => {
     startReplyNotificationMonitor();
     
     server = app.listen(PORT, '0.0.0.0', () => {
+      reconcileActiveTrelloWebhooks().catch(error => {
+        logger.error({ err: error }, 'Unable to reconcile Trello reply webhooks');
+      });
       logger.info({
         port: PORT,
         env: process.env.NODE_ENV || 'development',

@@ -25,6 +25,7 @@ const databases = {};
 function initDatabases(dataDir = './data') {
   const dbNames = ['users', 'trello_connections', 'shared_links', 'access_logs',
                    'email_verifications', 'share_participants', 'comment_threads',
+                   'trello_webhooks', 'trello_reply_events',
                    'resource_usage', 'billing', 'resource_pricing', 'shares'];
   
   dbNames.forEach(name => {
@@ -71,6 +72,18 @@ async function createIndexes() {
     });
     await databases.comment_threads.createIndex({
       index: { fields: ['status'] }
+    });
+
+    await databases.comment_threads.createIndex({
+      index: { fields: ['cardId', 'status'] }
+    });
+
+    await databases.trello_webhooks.createIndex({
+      index: { fields: ['userId', 'cardId'] }
+    });
+
+    await databases.trello_reply_events.createIndex({
+      index: { fields: ['status', 'nextAttemptAt'] }
     });
     
     // Resource usage index
@@ -455,24 +468,19 @@ const AccessLog = {
 const EmailVerification = {
   async create(data) {
     const email = data.email.toLowerCase().trim();
-    const latest = await this.findByShareIdAndEmail(data.shareId, email);
-    const latestAge = latest ? Date.now() - new Date(latest.createdAt).getTime() : Infinity;
-
-    // Re-sending within one minute reuses the active code instead of creating
-    // an unlimited stream of verification documents and emails.
-    if (latest && !latest.verified && latestAge < 60 * 1000 && new Date(latest.expiresAt) > new Date()) {
-      return { ...latest, reused: true };
-    }
-
     const id = generateId();
     const code = crypto.randomInt(100000, 1000000).toString();
+    const codeHash = crypto
+      .createHmac('sha256', process.env.JWT_SECRET || 'sharet-verification-development-secret')
+      .update(`${data.shareId}:${email}:${code}`)
+      .digest('hex');
     
     const verification = {
       _id: id,
       type: 'email_verification',
       shareId: data.shareId,
       email,
-      code,
+      codeHash,
       verified: false,
       attempts: 0,
       expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString(), // 15 minutes
@@ -480,7 +488,8 @@ const EmailVerification = {
     };
     
     await databases.email_verifications.put(verification);
-    return verification;
+    // The plain code is returned only to the mail delivery call and is never persisted.
+    return { ...verification, code };
   },
   
   async findByShareIdAndEmail(shareId, email) {
@@ -497,7 +506,18 @@ const EmailVerification = {
     
     if ((verification.attempts || 0) >= 5) return null;
 
-    if (verification.code === String(code || '').trim() && new Date(verification.expiresAt) > new Date()) {
+    const submittedCode = String(code || '').trim();
+    const submittedHash = crypto
+      .createHmac('sha256', process.env.JWT_SECRET || 'sharet-verification-development-secret')
+      .update(`${shareId}:${email.toLowerCase().trim()}:${submittedCode}`)
+      .digest('hex');
+    const storedHash = verification.codeHash ? Buffer.from(verification.codeHash, 'hex') : null;
+    const suppliedHash = Buffer.from(submittedHash, 'hex');
+    const codeMatches = storedHash
+      ? storedHash.length === suppliedHash.length && crypto.timingSafeEqual(storedHash, suppliedHash)
+      : verification.code === submittedCode;
+
+    if (codeMatches && new Date(verification.expiresAt) > new Date()) {
       verification.verified = true;
       verification.verifiedAt = new Date().toISOString();
       await databases.email_verifications.put(verification);
@@ -527,7 +547,8 @@ function publicParticipant(participant) {
     email: participant.email,
     notificationEnabled: participant.notificationEnabled !== false,
     verifiedAt: participant.verifiedAt,
-    lastSeenAt: participant.lastSeenAt
+    lastSeenAt: participant.lastSeenAt,
+    sessionExpiresAt: participant.sessionExpiresAt || null
   };
 }
 
@@ -547,6 +568,9 @@ const ShareParticipant = {
     const accessToken = crypto.randomBytes(32).toString('base64url');
     const accessTokenHash = hashParticipantToken(accessToken);
     const now = new Date().toISOString();
+    const requestedDays = Number(process.env.SHARET_PARTICIPANT_SESSION_DAYS || 90);
+    const sessionDays = Number.isFinite(requestedDays) ? Math.min(365, Math.max(1, requestedDays)) : 90;
+    const sessionExpiresAt = new Date(Date.now() + sessionDays * 24 * 60 * 60 * 1000).toISOString();
 
     const participant = existing
       ? {
@@ -557,6 +581,7 @@ const ShareParticipant = {
             .slice(0, 5),
           notificationEnabled: true,
           verifiedAt: now,
+          sessionExpiresAt,
           lastSeenAt: now,
           updatedAt: now
         }
@@ -569,6 +594,7 @@ const ShareParticipant = {
           accessTokenHashes: [accessTokenHash],
           notificationEnabled: true,
           verifiedAt: now,
+          sessionExpiresAt,
           lastSeenAt: now,
           createdAt: now,
           updatedAt: now
@@ -587,6 +613,7 @@ const ShareParticipant = {
       limit: 1000
     });
     return result.docs.find(participant =>
+      (!participant.sessionExpiresAt || new Date(participant.sessionExpiresAt) > new Date()) &&
       Array.isArray(participant.accessTokenHashes) && participant.accessTokenHashes.includes(tokenHash)
     ) || null;
   },
@@ -609,11 +636,7 @@ const ShareParticipant = {
   toPublic: publicParticipant
 };
 
-/**
- * Each freelancer comment waits for the next owner-authored Trello comment.
- * Trello comments are not threaded, so this models a reply as the first owner
- * comment posted after the freelancer's comment.
- */
+/** Each freelancer comment remains pending until a safely matched owner reply. */
 const CommentThread = {
   async create({ shareId, cardId, trelloCommentId, participant, commentText, commentDate }) {
     const id = `reply_thread_${trelloCommentId}`;
@@ -659,9 +682,26 @@ const CommentThread = {
     return result.docs;
   },
 
+  async findPendingByCardId(cardId) {
+    const result = await databases.comment_threads.find({
+      selector: { cardId, status: 'awaiting_reply' },
+      limit: 10000
+    });
+    return result.docs;
+  },
+
+  async findByIds(ids) {
+    if (!Array.isArray(ids) || ids.length === 0) return [];
+    const result = await databases.comment_threads.allDocs({ keys: ids, include_docs: true });
+    return result.rows.map(row => row.doc).filter(Boolean);
+  },
+
   async markNotified(thread, reply) {
+    // Hydrated service-only context may include Trello credentials; never copy
+    // that transient data into the durable public-conversation record.
+    const { share, connection, ...storedThread } = thread;
     const updated = {
-      ...thread,
+      ...storedThread,
       status: 'reply_notified',
       replyActionId: reply.id,
       replyDate: reply.date,
@@ -670,6 +710,228 @@ const CommentThread = {
     };
     await databases.comment_threads.put(updated);
     return updated;
+  }
+};
+
+const TrelloWebhook = {
+  async findByUserAndCard(userId, cardId) {
+    const result = await databases.trello_webhooks.find({
+      selector: { userId, cardId },
+      limit: 10
+    });
+    return result.docs.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))[0] || null;
+  },
+
+  async upsert({ userId, cardId, webhookId, callbackUrl, active = true, lastError = null }) {
+    const existing = await this.findByUserAndCard(userId, cardId);
+    const now = new Date().toISOString();
+    const webhook = existing
+      ? {
+          ...existing,
+          webhookId: webhookId || existing.webhookId,
+          callbackUrl,
+          active,
+          lastError,
+          updatedAt: now
+        }
+      : {
+          _id: `trello_webhook_${userId}_${cardId}`,
+          type: 'trello_webhook',
+          userId,
+          cardId,
+          webhookId: webhookId || null,
+          callbackUrl,
+          active,
+          lastError,
+          createdAt: now,
+          updatedAt: now
+        };
+    const result = await databases.trello_webhooks.put(webhook);
+    webhook._rev = result.rev;
+    return webhook;
+  },
+
+  async findAll() {
+    const result = await databases.trello_webhooks.allDocs({ include_docs: true });
+    return result.rows.map(row => row.doc).filter(doc => doc?.type === 'trello_webhook');
+  }
+};
+
+function compactTrelloAction(action, cardId) {
+  return {
+    id: action.id,
+    type: action.type,
+    date: action.date,
+    cardId: cardId || action.data?.card?.id || null,
+    text: action.data?.text || '',
+    memberCreator: action.memberCreator
+      ? {
+          id: action.memberCreator.id || null,
+          username: action.memberCreator.username || null,
+          fullName: action.memberCreator.fullName || null
+        }
+      : null
+  };
+}
+
+/** Durable, idempotent ledger for Trello owner-comment delivery decisions. */
+const ReplyEvent = {
+  async createOrGet(action, cardId, source = 'webhook') {
+    const id = `trello_reply_event_${action.id}`;
+    try {
+      return await databases.trello_reply_events.get(id);
+    } catch (error) {
+      if (error.status !== 404) throw error;
+    }
+
+    const now = new Date().toISOString();
+    const event = {
+      _id: id,
+      type: 'trello_reply_event',
+      trelloActionId: action.id,
+      cardId: cardId || action.data?.card?.id || null,
+      action: compactTrelloAction(action, cardId),
+      source,
+      status: 'received',
+      attempts: 0,
+      nextAttemptAt: now,
+      createdAt: now,
+      updatedAt: now
+    };
+
+    try {
+      const result = await databases.trello_reply_events.put(event);
+      event._rev = result.rev;
+      return event;
+    } catch (error) {
+      if (error.status === 409) return databases.trello_reply_events.get(id);
+      throw error;
+    }
+  },
+
+  async findById(id) {
+    try {
+      return await databases.trello_reply_events.get(id);
+    } catch (error) {
+      if (error.status === 404) return null;
+      throw error;
+    }
+  },
+
+  async claim(id, { allowAmbiguous = false } = {}) {
+    const event = await this.findById(id);
+    if (!event) return null;
+    if (['completed', 'ignored'].includes(event.status)) return null;
+    if (event.status === 'ambiguous' && !allowAmbiguous) return null;
+
+    const leaseUntil = event.processingLeaseUntil ? new Date(event.processingLeaseUntil).getTime() : 0;
+    if (event.status === 'processing' && leaseUntil > Date.now()) return null;
+    if (event.nextAttemptAt && new Date(event.nextAttemptAt).getTime() > Date.now()) return null;
+
+    const now = new Date().toISOString();
+    const claimed = {
+      ...event,
+      status: 'processing',
+      attempts: (event.attempts || 0) + 1,
+      processingLeaseUntil: new Date(Date.now() + 2 * 60 * 1000).toISOString(),
+      updatedAt: now
+    };
+    try {
+      const result = await databases.trello_reply_events.put(claimed);
+      claimed._rev = result.rev;
+      return claimed;
+    } catch (error) {
+      if (error.status === 409) return null;
+      throw error;
+    }
+  },
+
+  async update(id, updates) {
+    const event = await databases.trello_reply_events.get(id);
+    const updated = {
+      ...event,
+      ...updates,
+      processingLeaseUntil: null,
+      updatedAt: new Date().toISOString()
+    };
+    const result = await databases.trello_reply_events.put(updated);
+    updated._rev = result.rev;
+    return updated;
+  },
+
+  markAmbiguous(id, candidates, context = {}) {
+    return this.update(id, {
+      status: 'ambiguous',
+      candidates,
+      ...context,
+      ambiguousAt: new Date().toISOString()
+    });
+  },
+
+  async markEmailSent(id, details = {}) {
+    const event = await databases.trello_reply_events.get(id);
+    const updated = {
+      ...event,
+      ...details,
+      status: 'processing',
+      deliverySentAt: new Date().toISOString(),
+      processingLeaseUntil: new Date(Date.now() + 2 * 60 * 1000).toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    const result = await databases.trello_reply_events.put(updated);
+    updated._rev = result.rev;
+    return updated;
+  },
+
+  markCompleted(id, details = {}) {
+    return this.update(id, {
+      status: 'completed',
+      ...details,
+      completedAt: new Date().toISOString(),
+      lastError: null,
+      nextAttemptAt: null
+    });
+  },
+
+  markIgnored(id, reason) {
+    return this.update(id, {
+      status: 'ignored',
+      ignoredReason: reason,
+      ignoredAt: new Date().toISOString(),
+      nextAttemptAt: null
+    });
+  },
+
+  markFailed(id, error) {
+    return this.findById(id).then(event => {
+      const attempts = event?.attempts || 1;
+      const delayMs = Math.min(60 * 60 * 1000, 30 * 1000 * (2 ** Math.min(attempts - 1, 7)));
+      return this.update(id, {
+        status: 'failed',
+        lastError: String(error?.message || error || 'Reply delivery failed').slice(0, 500),
+        nextAttemptAt: new Date(Date.now() + delayMs).toISOString()
+      });
+    });
+  },
+
+  async findActionable() {
+    const result = await databases.trello_reply_events.allDocs({ include_docs: true });
+    const now = Date.now();
+    return result.rows
+      .map(row => row.doc)
+      .filter(event => event?.type === 'trello_reply_event')
+      .filter(event => ['received', 'failed', 'processing'].includes(event.status))
+      .filter(event => !event.nextAttemptAt || new Date(event.nextAttemptAt).getTime() <= now)
+      .filter(event => event.status !== 'processing' || new Date(event.processingLeaseUntil || 0).getTime() <= now);
+  },
+
+  async findAmbiguous(limit = 50) {
+    const result = await databases.trello_reply_events.allDocs({ include_docs: true });
+    return result.rows
+      .map(row => row.doc)
+      .filter(event => event?.type === 'trello_reply_event' && event.status === 'ambiguous')
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .slice(0, limit);
   }
 };
 
@@ -905,6 +1167,8 @@ module.exports = {
   EmailVerification,
   ShareParticipant,
   CommentThread,
+  TrelloWebhook,
+  ReplyEvent,
   ResourceUsage,
   Billing,
   ResourcePricing

@@ -113,24 +113,30 @@ async function sendVerificationCodeEmail({ to, code, share }) {
   }
 }
 
-function buildReplyEmailBody({ thread, reply, share, ownerName, shareUrl }) {
+function buildReplyEmailBody({ thread, threads, reply, share, ownerName, shareUrl }) {
+  const originals = Array.isArray(threads) && threads.length > 0 ? threads : [thread];
+  const originalSection = originals.length === 1
+    ? ['Your comment:', originals[0].commentText]
+    : [
+        'Your updates:',
+        ...originals.flatMap((item, index) => [`${index + 1}. ${item.commentText}`])
+      ];
   return [
     `${ownerName || 'The Trello card owner'} replied after your ShareT comment.`,
     '',
     `Card: ${share.cardName || share.cardId}`,
     `Board: ${share.boardName || 'Unknown board'}`,
     '',
-    'Your comment:',
-    thread.commentText,
+    ...originalSection,
     '',
     'Reply:',
-    reply?.data?.text || 'A new reply was posted.',
+    reply?.text || reply?.data?.text || 'A new reply was posted.',
     '',
     `Open the ShareT conversation: ${shareUrl}`
   ].join('\n');
 }
 
-async function sendFreelancerReplyNotification({ thread, reply, share, ownerName }) {
+async function sendFreelancerReplyNotification({ thread, threads, reply, share, ownerName }) {
   if (!hasEmailTransport()) return { skipped: true, reason: 'email-not-configured' };
 
   try {
@@ -144,7 +150,7 @@ async function sendFreelancerReplyNotification({ thread, reply, share, ownerName
       from: config.from,
       to: thread.participantEmail,
       subject: `New reply on ${share.cardName || 'your ShareT conversation'}`,
-      text: buildReplyEmailBody({ thread, reply, share, ownerName, shareUrl })
+      text: buildReplyEmailBody({ thread, threads, reply, share, ownerName, shareUrl })
     });
 
     return { sent: true };

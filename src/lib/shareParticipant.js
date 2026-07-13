@@ -31,7 +31,8 @@ export function writeShareParticipant(shareId, participantToken, participant) {
       name: participant.name,
       email: participant.email,
       notificationEnabled: participant.notificationEnabled !== false,
-      verifiedAt: participant.verifiedAt
+      verifiedAt: participant.verifiedAt,
+      sessionExpiresAt: participant.sessionExpiresAt || null
     }
   };
   localStorage.setItem(participantStorageKey(shareId), JSON.stringify(value));

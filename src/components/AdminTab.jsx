@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
-import { RefreshCw, Server, Users, Link2, CreditCard, Activity, Database, Cpu, Bell } from "lucide-react";
+import { RefreshCw, Server, Users, Link2, CreditCard, Activity, Database, Cpu, Bell, AlertTriangle, Mail } from "lucide-react";
 import { admin as adminAPI } from '../api';
 
 const fmt = (n) => (n === null || n === undefined ? '—' : n);
@@ -28,7 +28,9 @@ export default function AdminTab() {
   const [status, setStatus] = useState(null);
   const [shares, setShares] = useState(null);
   const [users, setUsers] = useState(null);
+  const [replyOperations, setReplyOperations] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [resolvingEventId, setResolvingEventId] = useState('');
   const [creditsUserId, setCreditsUserId] = useState('');
   const [creditsAmount, setCreditsAmount] = useState('');
   const { toast } = useToast();
@@ -36,14 +38,16 @@ export default function AdminTab() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [s, sh, u] = await Promise.all([
+      const [s, sh, u, replies] = await Promise.all([
         adminAPI.getStatus(),
         adminAPI.getShares(),
         adminAPI.getUsers(),
+        adminAPI.getFreelancerReplies(),
       ]);
       if (s.success) setStatus(s.data);
       if (sh.success) setShares(sh.data);
       if (u.success) setUsers(u.data);
+      if (replies.success) setReplyOperations(replies.data);
     } catch (e) {
       toast({ title: 'Failed to load admin data', variant: 'destructive' });
     } finally {
@@ -65,6 +69,24 @@ export default function AdminTab() {
       }
     } catch {
       toast({ title: 'Failed to add credits', variant: 'destructive' });
+    }
+  };
+
+  const handleResolveReply = async (eventId, participantEmail, participantName) => {
+    setResolvingEventId(eventId);
+    try {
+      const response = await adminAPI.resolveFreelancerReply(eventId, participantEmail);
+      if (response.success) {
+        toast({
+          title: `Reply sent to ${participantName}`,
+          description: 'The freelancer received your normal Trello reply by email.'
+        });
+        await load();
+      }
+    } catch (error) {
+      toast({ title: 'Reply could not be delivered', description: error.message, variant: 'destructive' });
+    } finally {
+      setResolvingEventId('');
     }
   };
 
@@ -114,6 +136,14 @@ export default function AdminTab() {
               </span>
             </div>
             <div className="flex items-center gap-2">
+              <Badge variant={status.freelancerReplies?.webhook?.configured ? 'default' : 'secondary'}>
+                {status.freelancerReplies?.webhook?.configured ? 'Mobile replies live' : 'Polling fallback'}
+              </Badge>
+              <span className="text-muted-foreground">
+                {status.freelancerReplies?.webhook?.activeCards || 0} card webhook(s) active
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
               <Badge variant={status.freelancerReplies?.emailConfigured ? 'default' : 'destructive'}>
                 {status.freelancerReplies?.emailConfigured ? 'Freelancer email ready' : 'Freelancer email missing'}
               </Badge>
@@ -127,6 +157,68 @@ export default function AdminTab() {
             <p className="text-muted-foreground">
               Native freelancer names use the optional per-share relay token; successful comment responses report whether a bell notification is expected.
             </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {replyOperations && (
+        <Card>
+          <CardHeader className="pb-2 pt-4">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Mail className="h-4 w-4" /> Freelancer reply delivery
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex flex-wrap gap-2 text-xs">
+              <Badge variant={replyOperations.webhook?.configured ? 'default' : 'secondary'}>
+                {replyOperations.webhook?.configured ? 'Webhook ready' : 'Webhook not configured'}
+              </Badge>
+              <Badge variant="outline">{replyOperations.pendingThreads || 0} awaiting reply</Badge>
+              <Badge variant={replyOperations.ambiguous?.length ? 'destructive' : 'outline'}>
+                {replyOperations.ambiguous?.length || 0} need review
+              </Badge>
+            </div>
+
+            {replyOperations.ambiguous?.length > 0 ? (
+              <div className="space-y-3">
+                {replyOperations.ambiguous.map(event => (
+                  <div key={event.id} className="rounded-lg border border-amber-200 bg-amber-50/70 p-3 dark:border-amber-900 dark:bg-amber-950/20">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                      <div className="min-w-0 flex-1 space-y-2">
+                        <div>
+                          <p className="text-xs font-semibold">Choose who should receive this Trello reply</p>
+                          <p className="text-[11px] text-muted-foreground">
+                            {event.cardName || 'Trello card'} · {event.ownerName || 'Card owner'} · {event.replyDate ? new Date(event.replyDate).toLocaleString() : ''}
+                          </p>
+                        </div>
+                        <blockquote className="border-l-2 border-amber-300 pl-2 text-xs text-foreground">
+                          {event.replyText || 'A reply was posted in Trello.'}
+                        </blockquote>
+                        <div className="flex flex-wrap gap-2">
+                          {event.candidates.map(candidate => (
+                            <Button
+                              key={`${event.id}-${candidate.participantEmail}`}
+                              size="sm"
+                              variant="outline"
+                              className="h-auto min-h-8 whitespace-normal text-left text-xs"
+                              disabled={resolvingEventId === event.id}
+                              onClick={() => handleResolveReply(event.id, candidate.participantEmail, candidate.participantName)}
+                            >
+                              Send to {candidate.participantName}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Normal Trello replies are being routed automatically. No ambiguous replies need attention.
+              </p>
+            )}
           </CardContent>
         </Card>
       )}

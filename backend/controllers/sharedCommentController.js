@@ -16,6 +16,7 @@
 
 const { SharedLink, TrelloConnection, AccessLog, ShareParticipant, CommentThread } = require('../db/pouchdb');
 const { sendShareTUpdateNotification } = require('../utils/notificationService');
+const { ensureTrelloWebhook } = require('../services/trelloWebhookService');
 
 const TRELLO_API_BASE = 'https://api.trello.com/1';
 const MAX_AUTHOR_NAME_LENGTH = 80;
@@ -349,6 +350,14 @@ exports.addComment = async (req, res) => {
 
     await ShareParticipant.touch(participant);
 
+    let webhook = { enabled: false, reason: 'registration-not-attempted' };
+    try {
+      webhook = await ensureTrelloWebhook({ share, connection });
+    } catch (error) {
+      console.error('Unable to enable immediate Trello reply detection:', error);
+      webhook = { enabled: false, reason: 'registration-failed', error: error.message };
+    }
+
     const trelloNotification = assessTrelloNotification({
       comment,
       candidate: postedWith,
@@ -386,7 +395,8 @@ exports.addComment = async (req, res) => {
         bellExpected: trelloNotification.bellExpected,
         warning: trelloNotification.warning
       },
-      replyTracking
+      replyTracking,
+      webhook
     });
   } catch (error) {
     console.error('Shared comment error:', error);

@@ -155,6 +155,11 @@ export const admin = {
   getStatus: () => apiRequest('/admin/status'),
   getShares: () => apiRequest('/admin/shares'),
   getUsers: () => apiRequest('/admin/users'),
+  getFreelancerReplies: () => apiRequest('/admin/freelancer-replies'),
+  resolveFreelancerReply: (eventId, participantEmail) => apiRequest(`/admin/freelancer-replies/${encodeURIComponent(eventId)}/resolve`, {
+    method: 'POST',
+    body: JSON.stringify({ participantEmail }),
+  }),
   addCredits: (userId, amount) => apiRequest('/admin/credits/add', {
     method: 'POST',
     body: JSON.stringify({ userId, amount }),

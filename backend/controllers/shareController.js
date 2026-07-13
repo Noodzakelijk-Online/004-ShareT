@@ -5,6 +5,7 @@
  */
 
 const { SharedLink, AccessLog, generateShareId, TrelloConnection } = require('../db/pouchdb');
+const { ensureWebhookForShare } = require('../services/trelloWebhookService');
 
 const TRELLO_API_BASE = 'https://api.trello.com/1';
 
@@ -112,9 +113,20 @@ exports.createShare = async (req, res) => {
       guestTrelloToken: guestTrelloToken || null
     });
 
+    let webhook = { enabled: false, reason: 'commenting-disabled' };
+    if (share.permissions?.canComment) {
+      try {
+        webhook = await ensureWebhookForShare(share);
+      } catch (error) {
+        console.error('Share created with polling fallback because webhook setup failed:', error);
+        webhook = { enabled: false, reason: 'registration-failed', error: error.message };
+      }
+    }
+
     res.status(201).json({
       success: true,
-      data: share
+      data: share,
+      webhook
     });
   } catch (error) {
     console.error('Create share error:', error);
@@ -175,9 +187,20 @@ exports.updateShare = async (req, res) => {
 
     const updatedShare = await SharedLink.updateById(req.params.shareId, updates);
 
+    let webhook = null;
+    if (updatedShare.isActive && updatedShare.permissions?.canComment) {
+      try {
+        webhook = await ensureWebhookForShare(updatedShare);
+      } catch (error) {
+        console.error('Updated share is using polling fallback because webhook setup failed:', error);
+        webhook = { enabled: false, reason: 'registration-failed', error: error.message };
+      }
+    }
+
     res.json({
       success: true,
-      data: updatedShare
+      data: updatedShare,
+      webhook
     });
   } catch (error) {
     console.error('Update share error:', error);
