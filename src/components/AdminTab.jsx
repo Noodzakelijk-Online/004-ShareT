@@ -114,7 +114,7 @@ export default function AdminTab() {
               </span>
             </div>
             <p className="text-muted-foreground">
-              A separate relay identity is required because Trello suppresses notifications for comments posted by your own account.
+              Add the relay to each board once. ShareT automatically assigns it to a card before posting the first freelancer comment there.
             </p>
             <p className="text-muted-foreground">
               Native freelancer names use the optional per-share relay token; successful comment responses report whether a bell notification is expected.

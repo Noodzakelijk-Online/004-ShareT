@@ -62,7 +62,9 @@ SHARET_TRELLO_NOTIFY_USERNAME=noodzakelijkonline
 
 The relay account must be different from the account named by `SHARET_TRELLO_NOTIFY_USERNAME`. Trello does not create notifications for actions performed by the same member, so the owner-token fallback can deliver a comment but cannot turn that owner's bell red.
 
-When a freelancer submits a ShareT comment, ShareT posts the update through the relay account and directly mentions the configured Trello username. The freelancer's name is the first, bold part of the comment. The Admin tab reports whether the shared relay is configured, and each successful comment response records `bellExpected` after Trello identifies the actual posting member.
+When a freelancer submits a ShareT comment, ShareT checks whether the relay is assigned to that card and adds it automatically when missing. The relay only needs to be added to each relevant board once; no manual card-by-card monitoring is required. ShareT then posts the update through the relay account and directly mentions the configured Trello username. The freelancer's name is the first, bold part of the comment. The Admin tab reports whether the shared relay is configured, and each successful comment response records both `relayAssignment` and `bellExpected`.
+
+If the relay is not a member of the board, Trello will reject the automatic card assignment. Add the relay to the board and retry the ShareT comment. For strict notification delivery, set `SHARET_ALLOW_OWNER_COMMENT_FALLBACK=false` so an assignment problem cannot silently fall back to the owner's token.
 
 ### Native Trello author names
 

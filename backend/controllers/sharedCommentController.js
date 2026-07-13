@@ -58,18 +58,74 @@ function formatComment({ text, authorName, notifyUsername, nativeAuthor }) {
   return parts.join('\n\n');
 }
 
-async function postTrelloComment({ cardId, text, key, token }) {
-  const params = new URLSearchParams({ key, token, text });
-  const url = `${TRELLO_API_BASE}/cards/${cardId}/actions/comments?${params}`;
-  const response = await fetch(url, { method: 'POST' });
+async function trelloApiRequest({ path, key, token, method = 'GET', params = {}, operation = 'request' }) {
+  const query = new URLSearchParams({ key, token, ...params });
+  const response = await fetch(`${TRELLO_API_BASE}${path}?${query}`, { method });
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
     const detail = data.message || data.error || response.statusText || 'Unknown Trello error';
-    throw new Error(`Trello comment failed (${response.status}): ${detail}`);
+    throw new Error(`Trello ${operation} failed (${response.status}): ${detail}`);
   }
 
   return data;
+}
+
+async function postTrelloComment({ cardId, text, key, token }) {
+  return trelloApiRequest({
+    path: `/cards/${cardId}/actions/comments`,
+    key,
+    token,
+    method: 'POST',
+    params: { text },
+    operation: 'comment'
+  });
+}
+
+async function ensureRelayAssignedToCard({ cardId, key, token }) {
+  const member = await trelloApiRequest({
+    path: '/members/me',
+    key,
+    token,
+    params: { fields: 'id,username,fullName' },
+    operation: 'relay identity lookup'
+  });
+
+  if (!member?.id) {
+    throw new Error('Trello relay identity lookup returned no member ID');
+  }
+
+  const card = await trelloApiRequest({
+    path: `/cards/${cardId}`,
+    key,
+    token,
+    params: { fields: 'idMembers' },
+    operation: 'card membership lookup'
+  });
+  const memberIds = Array.isArray(card?.idMembers) ? card.idMembers : [];
+  const alreadyAssigned = memberIds.includes(member.id);
+
+  if (!alreadyAssigned) {
+    await trelloApiRequest({
+      path: `/cards/${cardId}/idMembers`,
+      key,
+      token,
+      method: 'POST',
+      params: { value: member.id },
+      operation: 'relay card assignment'
+    });
+  }
+
+  return {
+    member: {
+      id: member.id,
+      username: member.username,
+      fullName: member.fullName
+    },
+    assigned: true,
+    added: !alreadyAssigned,
+    alreadyAssigned
+  };
 }
 
 function buildTokenCandidates(share, connection) {
@@ -81,7 +137,8 @@ function buildTokenCandidates(share, connection) {
     candidates.push({
       label: 'freelancer-relay',
       token: share.guestTrelloToken,
-      nativeAuthor: true
+      nativeAuthor: true,
+      autoAssignToCard: true
     });
   }
 
@@ -89,7 +146,8 @@ function buildTokenCandidates(share, connection) {
     candidates.push({
       label: 'shared-relay',
       token: process.env.TRELLO_BOT_TOKEN,
-      nativeAuthor: false
+      nativeAuthor: false,
+      autoAssignToCard: true
     });
   }
 
@@ -98,7 +156,8 @@ function buildTokenCandidates(share, connection) {
     candidates.push({
       label: 'owner-fallback',
       token: connection.trelloToken,
-      nativeAuthor: false
+      nativeAuthor: false,
+      autoAssignToCard: false
     });
   }
 
@@ -156,6 +215,7 @@ function buildNotificationStatus() {
     sharedRelayConfigured: hasSharedRelay,
     targetMode: hasExplicitTarget ? 'explicit-username' : 'connected-owner',
     ownerFallbackEnabled: process.env.SHARET_ALLOW_OWNER_COMMENT_FALLBACK !== 'false',
+    autoAssignRelayToCards: true,
     nativeAuthorMode: 'per-share-relay-token'
   };
 }
@@ -214,6 +274,14 @@ exports.addComment = async (req, res) => {
 
     for (const candidate of tokenCandidates) {
       try {
+        const relayAssignment = candidate.autoAssignToCard
+          ? await ensureRelayAssignedToCard({
+              cardId: share.cardId,
+              key,
+              token: candidate.token
+            })
+          : null;
+
         comment = await postTrelloComment({
           cardId: share.cardId,
           text: formatComment({
@@ -225,7 +293,7 @@ exports.addComment = async (req, res) => {
           key,
           token: candidate.token
         });
-        postedWith = candidate;
+        postedWith = { ...candidate, relayAssignment };
         break;
       } catch (error) {
         failures.push(`${candidate.label}: ${error.message}`);
@@ -280,6 +348,7 @@ exports.addComment = async (req, res) => {
           username: postingMember.username,
           fullName: postingMember.fullName
         } : null,
+        relayAssignment: postedWith.relayAssignment,
         bellExpected: trelloNotification.bellExpected,
         warning: trelloNotification.warning
       }
@@ -299,6 +368,7 @@ exports.__test = {
   assessTrelloNotification,
   buildNotificationStatus,
   buildTokenCandidates,
+  ensureRelayAssignedToCard,
   formatComment,
   normalizeAuthorName,
   normalizeTrelloUsername,
