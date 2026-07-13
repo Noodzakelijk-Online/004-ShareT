@@ -6,6 +6,7 @@
 
 const { SharedLink, AccessLog, generateShareId, TrelloConnection } = require('../db/pouchdb');
 const { ensureWebhookForShare } = require('../services/trelloWebhookService');
+const { normalizePagination } = require('../utils/pagination');
 
 const TRELLO_API_BASE = 'https://api.trello.com/1';
 
@@ -35,10 +36,8 @@ exports.getShares = async (req, res) => {
     // Sort by createdAt descending
     shares.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
-    // Pagination
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    const skip = (page - 1) * limit;
+    // Keep large histories fast while ensuring every link is reachable.
+    const { page, limit, skip, pages } = normalizePagination(req.query, shares.length);
     const paginatedShares = shares.slice(skip, skip + limit);
 
     res.json({
@@ -48,7 +47,7 @@ exports.getShares = async (req, res) => {
         total: shares.length,
         page,
         limit,
-        pages: Math.ceil(shares.length / limit)
+        pages
       }
     });
   } catch (error) {

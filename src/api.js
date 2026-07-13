@@ -173,7 +173,13 @@ export const sharedLinks = {
     body: JSON.stringify(linkData),
   }),
 
-  getAll: () => apiRequest('/shared-links'),
+  getAll: ({ page = 1, limit = 25 } = {}) => {
+    const params = new URLSearchParams({
+      page: String(page),
+      limit: String(limit),
+    });
+    return apiRequest(`/shared-links?${params.toString()}`);
+  },
 
   getById: (linkId) => apiRequest(`/shared-links/${linkId}`),
 

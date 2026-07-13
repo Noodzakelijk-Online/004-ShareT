@@ -1,37 +1,50 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Plus, Copy, Trash2, QrCode, Loader2, ToggleLeft, ToggleRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Copy, Trash2, QrCode, Loader2, ToggleLeft, ToggleRight } from "lucide-react";
 import { sharedLinks } from '../api';
+
+const LINKS_PER_PAGE = 25;
 
 const PreviousLinks = ({ onShowQRCode }) => {
   const { toast } = useToast();
   const [links, setLinks] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pagination, setPagination] = useState({ total: 0, pages: 1 });
 
   // Fix #2: Fetch links from backend API (persistent, survives logout/restart)
-  const fetchLinks = async () => {
+  const fetchLinks = useCallback(async (page) => {
     setIsLoading(true);
     try {
-      const response = await sharedLinks.getAll();
+      const response = await sharedLinks.getAll({ page, limit: LINKS_PER_PAGE });
       if (response.success && response.data) {
         setLinks(response.data);
+        setPagination({
+          total: response.pagination?.total ?? response.data.length,
+          pages: Math.max(1, response.pagination?.pages ?? 1),
+        });
       }
     } catch (error) {
       console.error('Error fetching links:', error);
       // Fallback to localStorage
       const storedLinks = JSON.parse(localStorage.getItem('previousLinks') || '[]');
-      setLinks(storedLinks);
+      const start = (page - 1) * LINKS_PER_PAGE;
+      setLinks(storedLinks.slice(start, start + LINKS_PER_PAGE));
+      setPagination({
+        total: storedLinks.length,
+        pages: Math.max(1, Math.ceil(storedLinks.length / LINKS_PER_PAGE)),
+      });
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    fetchLinks();
-  }, []);
+    fetchLinks(currentPage);
+  }, [currentPage, fetchLinks]);
 
   const handleCopyLink = (shareId) => {
     const url = `${window.location.origin}/shared/${shareId}`;
@@ -45,7 +58,15 @@ const PreviousLinks = ({ onShowQRCode }) => {
   const handleDeleteLink = async (id) => {
     try {
       await sharedLinks.delete(id);
-      setLinks(links.filter(link => link._id !== id));
+      const targetPage = links.length === 1 && currentPage > 1
+        ? currentPage - 1
+        : currentPage;
+
+      if (targetPage !== currentPage) {
+        setCurrentPage(targetPage);
+      } else {
+        await fetchLinks(targetPage);
+      }
       toast({
         title: "Link deleted",
         description: "The share link has been deleted.",
@@ -63,7 +84,7 @@ const PreviousLinks = ({ onShowQRCode }) => {
   const handleToggleActive = async (id, currentActive) => {
     try {
       await sharedLinks.update(id, { isActive: !currentActive });
-      fetchLinks(); // Refresh
+      fetchLinks(currentPage); // Refresh
     } catch (error) {
       console.error('Error toggling link:', error);
     }
@@ -79,6 +100,16 @@ const PreviousLinks = ({ onShowQRCode }) => {
 
   return (
     <div className="space-y-4">
+      {pagination.total > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
+          <p>
+            Showing {(currentPage - 1) * LINKS_PER_PAGE + 1}–{Math.min(currentPage * LINKS_PER_PAGE, pagination.total)} of {pagination.total} links
+          </p>
+          {pagination.pages > 1 && (
+            <p>Page {currentPage} of {pagination.pages}</p>
+          )}
+        </div>
+      )}
       {links.length > 0 ? (
         links.map((link) => (
           <div key={link._id || link.shareId} className="flex justify-between items-center p-3 bg-secondary rounded-md">
@@ -170,6 +201,31 @@ const PreviousLinks = ({ onShowQRCode }) => {
         ))
       ) : (
         <p className="text-muted-foreground">You have no previous share links.</p>
+      )}
+      {pagination.pages > 1 && (
+        <nav className="flex items-center justify-between gap-3 pt-2" aria-label="Previous links pages">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+            disabled={currentPage === 1 || isLoading}
+          >
+            <ChevronLeft className="mr-2 h-4 w-4" />
+            Previous
+          </Button>
+          <span className="text-sm text-muted-foreground">
+            Page {currentPage} of {pagination.pages}
+          </span>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setCurrentPage((page) => Math.min(pagination.pages, page + 1))}
+            disabled={currentPage === pagination.pages || isLoading}
+          >
+            Next
+            <ChevronRight className="ml-2 h-4 w-4" />
+          </Button>
+        </nav>
       )}
     </div>
   );
