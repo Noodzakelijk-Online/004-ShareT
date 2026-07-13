@@ -96,7 +96,11 @@ const TrelloTargetPicker = ({
           align="start"
           className="w-[var(--radix-popover-trigger-width)] p-0"
         >
-          <Command>
+          <Command
+            filter={(value, search) => (
+              value.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()) ? 1 : 0
+            )}
+          >
             <CommandInput
               placeholder={isListMode
                 ? 'Search list, board, or workspace…'
