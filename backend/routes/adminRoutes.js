@@ -5,6 +5,7 @@ const { protect, adminOnly } = require('../middleware/auth');
 const { getStats, User, SharedLink } = require('../db/pouchdb');
 const { getStats: getCacheStats } = require('../utils/cache');
 const { getNotificationStatus } = require('../controllers/sharedCommentController');
+const { hasEmailTransport } = require('../utils/notificationService');
 
 router.use(protect);
 router.use(adminOnly);
@@ -24,6 +25,10 @@ router.get('/status', async (req, res) => {
         timestamp: new Date().toISOString(),
         publicUrl: process.env.PUBLIC_URL || null,
         trelloNotifications: getNotificationStatus(),
+        freelancerReplies: {
+          emailConfigured: hasEmailTransport(),
+          backgroundPollIntervalMs: Math.max(15000, Number(process.env.SHARET_REPLY_POLL_INTERVAL_MS || 60000))
+        },
         memory: {
           processUsedMB: Math.round(mem.heapUsed / 1024 / 1024),
           processTotalMB: Math.round(mem.heapTotal / 1024 / 1024),

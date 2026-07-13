@@ -15,10 +15,13 @@
  * - #17: Identity handling — no more [Via ShareT] prefix
  */
 
-const { SharedLink, TrelloConnection, AccessLog, EmailVerification } = require('../db/pouchdb');
+const { SharedLink, TrelloConnection, AccessLog, EmailVerification, ShareParticipant } = require('../db/pouchdb');
+const { hasEmailTransport, sendVerificationCodeEmail } = require('../utils/notificationService');
+const { processReplyNotificationsForShare } = require('../services/replyNotificationService');
 const bcrypt = require('bcryptjs');
 const multer = require('multer');
 const FormData = require('form-data');
+const validator = require('validator');
 
 const TRELLO_API_BASE = 'https://api.trello.com/1';
 
@@ -108,6 +111,8 @@ exports.getSharedCard = async (req, res) => {
         trelloCardName: share.cardName,
         trelloBoardName: share.boardName,
         requiresEmail: share.allowedEmails && share.allowedEmails.length > 0,
+        requiresParticipantIdentity: Boolean(share.permissions?.canComment),
+        emailNotificationsAvailable: hasEmailTransport() || process.env.NODE_ENV === 'development',
         requiresPassword: !!share.password,
         permissions: share.permissions
       },
@@ -167,14 +172,19 @@ exports.verifyEmail = async (req, res) => {
 // Request email verification code
 exports.requestVerification = async (req, res) => {
   try {
-    const { email } = req.body;
+    const email = String(req.body.email || '').trim().toLowerCase();
+    const name = String(req.body.name || '').replace(/\s+/g, ' ').trim();
     const { shareId } = req.params;
 
-    if (!email) {
+    if (!email || !validator.isEmail(email)) {
       return res.status(400).json({
         success: false,
-        message: 'Email is required'
+        message: 'A valid email address is required'
       });
+    }
+
+    if (!name || name.length > 80) {
+      return res.status(400).json({ success: false, message: 'Your name is required' });
     }
 
     const share = await SharedLink.findByShareId(shareId);
@@ -197,13 +207,25 @@ exports.requestVerification = async (req, res) => {
 
     // Create verification
     const verification = await EmailVerification.create({ shareId, email });
+    const delivery = await sendVerificationCodeEmail({
+      to: email,
+      code: verification.code,
+      share
+    });
 
-    // In production, send email
-    console.log(`Verification code for ${email}: ${verification.code}`);
+    if (!delivery.sent && process.env.NODE_ENV !== 'development') {
+      return res.status(503).json({
+        success: false,
+        message: delivery.skipped
+          ? 'Email delivery is not configured for this ShareT server'
+          : 'Unable to send the verification email right now'
+      });
+    }
 
     res.json({
       success: true,
       message: 'Verification code sent',
+      delivery: delivery.sent ? 'email' : 'development-code',
       ...(process.env.NODE_ENV === 'development' && { code: verification.code })
     });
   } catch (error) {
@@ -218,8 +240,14 @@ exports.requestVerification = async (req, res) => {
 // Confirm email verification
 exports.confirmVerification = async (req, res) => {
   try {
-    const { email, code } = req.body;
+    const email = String(req.body.email || '').trim().toLowerCase();
+    const name = String(req.body.name || '').replace(/\s+/g, ' ').trim();
+    const { code } = req.body;
     const { shareId } = req.params;
+
+    if (!email || !validator.isEmail(email) || !name || name.length > 80) {
+      return res.status(400).json({ success: false, message: 'Name and a valid email are required' });
+    }
 
     const verification = await EmailVerification.verify(shareId, email, code);
 
@@ -230,9 +258,13 @@ exports.confirmVerification = async (req, res) => {
       });
     }
 
+    const verifiedParticipant = await ShareParticipant.createVerified({ shareId, email, name });
+
     res.json({
       success: true,
-      message: 'Email verified'
+      message: 'Email verified',
+      participantToken: verifiedParticipant.accessToken,
+      participant: verifiedParticipant.participant
     });
   } catch (error) {
     console.error('Confirm verification error:', error);
@@ -240,6 +272,23 @@ exports.confirmVerification = async (req, res) => {
       success: false,
       message: 'Error verifying'
     });
+  }
+};
+
+exports.getParticipantStatus = async (req, res) => {
+  try {
+    const { participantToken } = req.body;
+    const participant = await ShareParticipant.findByAccessToken(req.params.shareId, participantToken);
+
+    if (!participant) {
+      return res.status(401).json({ success: false, message: 'Email verification is required' });
+    }
+
+    const publicParticipant = await ShareParticipant.touch(participant);
+    res.json({ success: true, participant: publicParticipant });
+  } catch (error) {
+    console.error('Participant status error:', error);
+    res.status(500).json({ success: false, message: 'Unable to verify participant session' });
   }
 };
 
@@ -481,8 +530,11 @@ exports.getSharedComments = async (req, res) => {
     const { share, connection } = result;
     const url = `${TRELLO_API_BASE}/cards/${share.cardId}/actions?key=${process.env.TRELLO_API_KEY}&token=${connection.trelloToken}&filter=commentCard&limit=1000`;
     const comments = await fetchJSON(url);
+    processReplyNotificationsForShare({ share, connection, comments }).catch(error => {
+      console.error('Open ShareT reply notification check failed:', error);
+    });
 
-    res.json({ success: true, data: comments, comments });
+    res.json({ success: true, data: comments, comments, replyNotifications: { scheduled: true } });
   } catch (error) {
     console.error('Get shared comments error:', error);
     res.status(500).json({ success: false, message: 'Error fetching comments' });

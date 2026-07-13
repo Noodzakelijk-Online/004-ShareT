@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Loader2, FileText, Paperclip, Calendar, MessageSquare, AlertTriangle, Users, CheckSquare, Link2, History, RefreshCw, ExternalLink, Upload } from "lucide-react";
+import { Loader2, FileText, Paperclip, Calendar, AlertTriangle, CheckSquare, Link2, History, RefreshCw, ExternalLink, Upload, Mail, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -10,8 +10,10 @@ import remarkBreaks from 'remark-breaks';
 import { format } from 'date-fns';
 import { sharedAccess } from '../api';
 import { ThemeToggle } from './ThemeToggle';
+import { clearShareParticipant, readShareParticipant, writeShareParticipant } from '../lib/shareParticipant';
 
 const AUTO_REFRESH_INTERVAL = 30 * 60 * 1000; // 30 minutes
+const COMMENT_REFRESH_INTERVAL = 30 * 1000;
 
 // Fix #8: URL rendering — make URLs clickable and match Trello style
 const renderUrl = (url) => {
@@ -66,36 +68,85 @@ const SharedCardView = ({ linkToken }) => {
   const [hideCompletedMap, setHideCompletedMap] = useState({});
   const [permissions, setPermissions] = useState({});
   const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState("details");
   const [comment, setComment] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [newDueDate, setNewDueDate] = useState('');
   const [lastRefreshed, setLastRefreshed] = useState(new Date());
-  
-  // Fix #17: Persisted client name — scoped per shareId to prevent admin name bleed-through
-  const storageKey = `shareT_clientName_${linkToken}`;
-  const [clientName, setClientName] = useState(() => {
-    const params = new URLSearchParams(window.location.search);
-    const urlName = params.get('name');
-    if (urlName) {
-      const name = decodeURIComponent(urlName);
-      localStorage.setItem(storageKey, name);
-      return name;
-    }
-    return localStorage.getItem(storageKey) || '';
-  });
+  const [participantSession, setParticipantSession] = useState(() => readShareParticipant(linkToken));
+  const participant = participantSession?.participant || null;
+  const participantToken = participantSession?.participantToken || '';
   
   const refreshTimerRef = useRef(null);
+  const commentRefreshRef = useRef(null);
   const backgroundRefreshRef = useRef(null);
+
+  // Keep the open conversation current without replacing in-progress input.
+  const fetchComments = useCallback(async () => {
+    try {
+      const response = await sharedAccess.getComments(linkToken);
+      if (response.data) {
+        setComments(response.data);
+        setLastRefreshed(new Date());
+      }
+    } catch (error) {
+      console.error('Error fetching comments:', error);
+    }
+  }, [linkToken]);
   
+  const fetchAttachments = useCallback(async () => {
+    try {
+      const response = await sharedAccess.getAttachments(linkToken);
+      if (response.data) {
+        setAttachments(response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching attachments:', error);
+    }
+  }, [linkToken]);
+
+  // Fix #13: Fetch full action history
+  const fetchActions = useCallback(async () => {
+    try {
+      const response = await sharedAccess.getActions(linkToken);
+      if (response.data) {
+        setActions(response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching actions:', error);
+    }
+  }, [linkToken]);
+
+  // Fix #7: Fetch all checklists  
+  const fetchChecklists = useCallback(async () => {
+    try {
+      const response = await sharedAccess.getChecklists(linkToken);
+      if (response.data) {
+        setChecklists(response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching checklists:', error);
+    }
+  }, [linkToken]);
+
+  // Fix #10: Fetch card members
+  const fetchMembers = useCallback(async () => {
+    try {
+      const response = await sharedAccess.getMembers(linkToken);
+      if (response.data) {
+        setMembers(response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching members:', error);
+    }
+  }, [linkToken]);
+
   const fetchCardData = useCallback(async () => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
       const response = await sharedAccess.getCard(linkToken);
 
-      // If this share requires a password, verify the user passed the gate
       if (response.linkInfo?.requiresPassword) {
         const verified = sessionStorage.getItem(`shareT_pw_${linkToken}`);
         if (!verified) {
@@ -103,20 +154,34 @@ const SharedCardView = ({ linkToken }) => {
           return;
         }
       }
-      
+
+      if (response.linkInfo?.requiresParticipantIdentity) {
+        if (!participantToken) {
+          window.location.href = `/shared/${linkToken}`;
+          return;
+        }
+
+        try {
+          const status = await sharedAccess.getParticipantStatus(linkToken, participantToken);
+          const saved = writeShareParticipant(linkToken, participantToken, status.participant);
+          setParticipantSession(saved);
+        } catch {
+          clearShareParticipant(linkToken);
+          window.location.href = `/shared/${linkToken}`;
+          return;
+        }
+      }
+
       if (response.data?.card) {
         setCardData(response.data.card);
         setPermissions(response.data.permissions || {});
-        
-        // Fetch all supplementary data in parallel
-        const promises = [];
-        promises.push(fetchComments());
-        promises.push(fetchAttachments());
-        promises.push(fetchChecklists());
-        promises.push(fetchMembers());
-        promises.push(fetchActions());
-        
-        await Promise.allSettled(promises);
+        await Promise.allSettled([
+          fetchComments(),
+          fetchAttachments(),
+          fetchChecklists(),
+          fetchMembers(),
+          fetchActions()
+        ]);
       } else {
         throw new Error('Card data not found');
       }
@@ -127,66 +192,7 @@ const SharedCardView = ({ linkToken }) => {
       setIsLoading(false);
       setLastRefreshed(new Date());
     }
-  }, [linkToken]);
-  
-  const fetchAttachments = async () => {
-    try {
-      const response = await sharedAccess.getAttachments(linkToken);
-      if (response.data) {
-        setAttachments(response.data);
-      }
-    } catch (error) {
-      console.error('Error fetching attachments:', error);
-    }
-  };
-
-  // Fix #12 & #13: Fetch all comments with ISO timestamps  
-  const fetchComments = async () => {
-    try {
-      const response = await sharedAccess.getComments(linkToken);
-      if (response.data) {
-        setComments(response.data);
-      }
-    } catch (error) {
-      console.error('Error fetching comments:', error);
-    }
-  };
-
-  // Fix #13: Fetch full action history
-  const fetchActions = async () => {
-    try {
-      const response = await sharedAccess.getActions(linkToken);
-      if (response.data) {
-        setActions(response.data);
-      }
-    } catch (error) {
-      console.error('Error fetching actions:', error);
-    }
-  };
-
-  // Fix #7: Fetch all checklists  
-  const fetchChecklists = async () => {
-    try {
-      const response = await sharedAccess.getChecklists(linkToken);
-      if (response.data) {
-        setChecklists(response.data);
-      }
-    } catch (error) {
-      console.error('Error fetching checklists:', error);
-    }
-  };
-
-  // Fix #10: Fetch card members
-  const fetchMembers = async () => {
-    try {
-      const response = await sharedAccess.getMembers(linkToken);
-      if (response.data) {
-        setMembers(response.data);
-      }
-    } catch (error) {
-      console.error('Error fetching members:', error);
-    }
-  };
+  }, [fetchActions, fetchAttachments, fetchChecklists, fetchComments, fetchMembers, linkToken, participantToken]);
 
   
   useEffect(() => {
@@ -197,23 +203,32 @@ const SharedCardView = ({ linkToken }) => {
       fetchCardData();
     }, AUTO_REFRESH_INTERVAL);
 
-    // Issue #6: Background polling every 90 seconds — only refreshes data, never touches typed text
+    commentRefreshRef.current = setInterval(fetchComments, COMMENT_REFRESH_INTERVAL);
+
+    // Less time-sensitive card data can stay on the existing slower cadence.
     backgroundRefreshRef.current = setInterval(() => {
-      fetchComments();
       fetchAttachments();
       fetchActions();
     }, 90 * 1000);
+
+    const refreshVisibleConversation = () => {
+      if (document.visibilityState === 'visible') fetchComments();
+    };
+    window.addEventListener('focus', refreshVisibleConversation);
+    document.addEventListener('visibilitychange', refreshVisibleConversation);
     
     return () => {
       if (refreshTimerRef.current) clearInterval(refreshTimerRef.current);
+      if (commentRefreshRef.current) clearInterval(commentRefreshRef.current);
       if (backgroundRefreshRef.current) clearInterval(backgroundRefreshRef.current);
+      window.removeEventListener('focus', refreshVisibleConversation);
+      document.removeEventListener('visibilitychange', refreshVisibleConversation);
     };
-  }, [fetchCardData]);
+  }, [fetchActions, fetchAttachments, fetchCardData, fetchComments]);
 
-  // Fix #17: Persist client name to localStorage
-  const handleNameChange = (name) => {
-    setClientName(name);
-    localStorage.setItem(storageKey, name);
+  const handleChangeIdentity = () => {
+    clearShareParticipant(linkToken);
+    window.location.href = `/shared/${linkToken}`;
   };
 
   const toggleHideCompleted = (clId) => {
@@ -223,9 +238,9 @@ const SharedCardView = ({ linkToken }) => {
   // Fix #16: Comment with full markdown support
   const handleAddComment = async () => {
     if (!comment.trim()) return;
-    if (!clientName.trim()) {
-      toast.error('Please enter your name before commenting');
-      document.getElementById('commenter-name')?.focus();
+    if (!participantToken || !participant) {
+      toast.error('Verify your email before commenting');
+      window.location.href = `/shared/${linkToken}`;
       return;
     }
     
@@ -234,7 +249,7 @@ const SharedCardView = ({ linkToken }) => {
     try {
       const response = await sharedAccess.addComment(linkToken, {
         text: comment,
-        authorName: clientName || undefined
+        participantToken
       });
       
       if (response.success) {
@@ -605,23 +620,23 @@ const SharedCardView = ({ linkToken }) => {
                 <div className="flex gap-3 mb-5">
                   <Avatar className="h-8 w-8 flex-shrink-0">
                     <AvatarFallback className="bg-[#0079bf] text-white text-xs">
-                      {(clientName || '?')[0].toUpperCase()}
+                      {(participant?.name || '?')[0].toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1 space-y-2">
-                    <input
-                      id="commenter-name"
-                      type="text"
-                      value={clientName}
-                      onChange={e => handleNameChange(e.target.value)}
-                      placeholder="Your name (required)"
-                      className={`w-full h-8 px-3 text-sm text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 border rounded-md bg-white dark:bg-[#22272b] focus:outline-none focus:ring-2 focus:ring-blue-300 ${
-                        !clientName.trim() ? 'border-orange-300' : 'border-gray-300 dark:border-slate-600'
-                      }`}
-                    />
-                    {!clientName.trim() && (
-                      <p className="text-xs text-orange-500">Enter your name so others know who commented</p>
-                    )}
+                    <div className="flex items-center justify-between gap-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 dark:border-emerald-900 dark:bg-emerald-950/30">
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
+                          <ShieldCheck className="h-3.5 w-3.5" /> Commenting as {participant?.name}
+                        </p>
+                        <p className="text-[11px] text-emerald-700 dark:text-emerald-400 truncate">
+                          Replies will be emailed to {participant?.email}
+                        </p>
+                      </div>
+                      <button type="button" onClick={handleChangeIdentity} className="text-[11px] text-emerald-800 dark:text-emerald-300 underline flex-shrink-0">
+                        Change
+                      </button>
+                    </div>
                     <textarea
                       value={comment}
                       onChange={e => setComment(e.target.value)}
@@ -633,15 +648,12 @@ const SharedCardView = ({ linkToken }) => {
                         <Button
                           size="sm"
                           onClick={handleAddComment}
-                          disabled={isSubmitting || !clientName.trim()}
+                          disabled={isSubmitting || !participantToken}
                           className="bg-[#0079bf] hover:bg-[#005f99] disabled:opacity-50"
-                          title={!clientName.trim() ? 'Enter your name first' : ''}
+                          title={!participantToken ? 'Verify your email first' : ''}
                         >
                           {isSubmitting ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Save'}
                         </Button>
-                        {!clientName.trim() && (
-                          <span className="text-xs text-orange-500">Enter your name first</span>
-                        )}
                       </div>
                     )}
                   </div>
@@ -701,15 +713,13 @@ const SharedCardView = ({ linkToken }) => {
           <div className="w-full lg:w-44 shrink-0 space-y-3">
 
             {permissions.canComment && (
-              <div>
-                <h4 className="text-xs font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wide mb-1.5">Your Name</h4>
-                <input
-                  type="text"
-                  value={clientName}
-                  onChange={e => handleNameChange(e.target.value)}
-                  placeholder="Enter your name"
-                  className="w-full h-8 px-2 text-sm text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 border dark:border-slate-600 rounded-md bg-white dark:bg-[#22272b] focus:outline-none focus:ring-2 focus:ring-blue-300"
-                />
+              <div className="rounded-md border bg-white p-2.5 dark:border-slate-700 dark:bg-[#22272b]">
+                <h4 className="text-xs font-semibold text-gray-500 dark:text-zinc-400 uppercase tracking-wide mb-1.5 flex items-center gap-1">
+                  <Mail className="h-3 w-3" /> Reply tracking
+                </h4>
+                <p className="text-xs font-medium text-gray-700 dark:text-zinc-200 truncate">{participant?.name}</p>
+                <p className="text-[10px] text-gray-500 dark:text-zinc-400 break-all">{participant?.email}</p>
+                <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-1">Verified · checking every 30 seconds</p>
               </div>
             )}
 

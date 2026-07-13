@@ -77,7 +77,27 @@ There are therefore two supported modes:
 - Shared relay: one ShareT Trello account, compact bold freelancer name in the comment, and a normal owner notification.
 - Per-freelancer relay: native Trello author name plus a normal owner notification, still without requiring the freelancer to use Trello.
 
-For extra reliability, configure email fallback notifications:
+## Freelancer email verification and reply tracking
+
+Comment-enabled links now require the freelancer to enter a name and verify an email address on first access. ShareT remembers the verified browser session for that link, associates each freelancer comment with the verified email, and sends one email when the Trello owner posts the next comment.
+
+While the ShareT page is open, comments refresh every 30 seconds and immediately when the tab becomes visible again. A server-side monitor checks pending conversations every 60 seconds by default, so reply emails also work when the freelancer closes the page.
+
+Configure SMTP for verification codes and freelancer reply emails. The Docker deployment uses the existing `EMAIL_*` variables:
+
+```env
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_SECURE=false
+EMAIL_USER=your_gmail@gmail.com
+EMAIL_PASSWORD=your_gmail_app_password
+EMAIL_FROM=ShareT <your_gmail@gmail.com>
+SHARET_REPLY_POLL_INTERVAL_MS=60000
+```
+
+The backend also accepts the equivalent `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, and `SMTP_FROM` names.
+
+For extra owner-side reliability, optionally configure the existing email fallback:
 
 ```env
 SHARET_NOTIFY_EMAIL_TO=you@example.com
@@ -89,4 +109,4 @@ SMTP_PASS=...
 SMTP_FROM=ShareT <notifications@example.com>
 ```
 
-This keeps the Trello card as the source of truth while also making sure important freelancer updates do not depend only on Trello's notification bell.
+This keeps the Trello card as the source of truth while making both sides of the conversation independently trackable.

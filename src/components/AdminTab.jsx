@@ -113,6 +113,14 @@ export default function AdminTab() {
                 Target: {status.trelloNotifications.targetMode === 'explicit-username' ? 'configured username' : 'connected Trello owner'}
               </span>
             </div>
+            <div className="flex items-center gap-2">
+              <Badge variant={status.freelancerReplies?.emailConfigured ? 'default' : 'destructive'}>
+                {status.freelancerReplies?.emailConfigured ? 'Freelancer email ready' : 'Freelancer email missing'}
+              </Badge>
+              <span className="text-muted-foreground">
+                Background replies: every {Math.round((status.freelancerReplies?.backgroundPollIntervalMs || 60000) / 1000)}s
+              </span>
+            </div>
             <p className="text-muted-foreground">
               Add the relay to each board once. ShareT automatically assigns it to a card before posting the first freelancer comment there.
             </p>

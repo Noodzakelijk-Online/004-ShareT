@@ -10,8 +10,9 @@ const sharedCommentController = require('../controllers/sharedCommentController'
 
 // Public routes - no authentication required
 router.get('/:shareId', sharedAccessController.getSharedCard);
-router.post('/:shareId/verify-email', sharedAccessController.verifyEmail);
+router.post('/:shareId/verify-email', sharedAccessController.requestVerification);
 router.post('/:shareId/confirm-verification', sharedAccessController.confirmVerification);
+router.post('/:shareId/participant-status', sharedAccessController.getParticipantStatus);
 router.post('/:shareId/verify-password', sharedAccessController.verifyPassword);
 
 // Attachments

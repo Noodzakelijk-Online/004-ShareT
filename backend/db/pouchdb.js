@@ -23,8 +23,9 @@ const databases = {};
 
 // Initialize databases
 function initDatabases(dataDir = './data') {
-  const dbNames = ['users', 'trello_connections', 'shared_links', 'access_logs', 
-                   'email_verifications', 'resource_usage', 'billing', 'resource_pricing', 'shares'];
+  const dbNames = ['users', 'trello_connections', 'shared_links', 'access_logs',
+                   'email_verifications', 'share_participants', 'comment_threads',
+                   'resource_usage', 'billing', 'resource_pricing', 'shares'];
   
   dbNames.forEach(name => {
     databases[name] = new PouchDB(`${dataDir}/${name}`, { auto_compaction: true });
@@ -55,6 +56,21 @@ async function createIndexes() {
     // Access logs index
     await databases.access_logs.createIndex({
       index: { fields: ['shareId', 'accessedAt'] }
+    });
+
+    await databases.email_verifications.createIndex({
+      index: { fields: ['shareId', 'email'] }
+    });
+
+    await databases.share_participants.createIndex({
+      index: { fields: ['shareId', 'email'] }
+    });
+
+    await databases.comment_threads.createIndex({
+      index: { fields: ['shareId', 'status'] }
+    });
+    await databases.comment_threads.createIndex({
+      index: { fields: ['status'] }
     });
     
     // Resource usage index
@@ -438,16 +454,27 @@ const AccessLog = {
  */
 const EmailVerification = {
   async create(data) {
+    const email = data.email.toLowerCase().trim();
+    const latest = await this.findByShareIdAndEmail(data.shareId, email);
+    const latestAge = latest ? Date.now() - new Date(latest.createdAt).getTime() : Infinity;
+
+    // Re-sending within one minute reuses the active code instead of creating
+    // an unlimited stream of verification documents and emails.
+    if (latest && !latest.verified && latestAge < 60 * 1000 && new Date(latest.expiresAt) > new Date()) {
+      return { ...latest, reused: true };
+    }
+
     const id = generateId();
-    const code = crypto.randomBytes(3).toString('hex').toUpperCase();
+    const code = crypto.randomInt(100000, 1000000).toString();
     
     const verification = {
       _id: id,
       type: 'email_verification',
       shareId: data.shareId,
-      email: data.email.toLowerCase(),
+      email,
       code,
       verified: false,
+      attempts: 0,
       expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString(), // 15 minutes
       createdAt: new Date().toISOString()
     };
@@ -458,26 +485,191 @@ const EmailVerification = {
   
   async findByShareIdAndEmail(shareId, email) {
     const result = await databases.email_verifications.find({
-      selector: { shareId, email: email.toLowerCase() }
+      selector: { shareId, email: email.toLowerCase().trim() },
+      limit: 100
     });
-    return result.docs[0] || null;
+    return result.docs.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0] || null;
   },
   
   async verify(shareId, email, code) {
     const verification = await this.findByShareIdAndEmail(shareId, email);
     if (!verification) return null;
     
-    if (verification.code === code && new Date(verification.expiresAt) > new Date()) {
+    if ((verification.attempts || 0) >= 5) return null;
+
+    if (verification.code === String(code || '').trim() && new Date(verification.expiresAt) > new Date()) {
       verification.verified = true;
+      verification.verifiedAt = new Date().toISOString();
       await databases.email_verifications.put(verification);
       return verification;
     }
+
+    verification.attempts = (verification.attempts || 0) + 1;
+    await databases.email_verifications.put(verification);
     return null;
   },
   
   async isVerified(shareId, email) {
     const verification = await this.findByShareIdAndEmail(shareId, email);
     return verification?.verified === true;
+  }
+};
+
+function hashParticipantToken(token) {
+  return crypto.createHash('sha256').update(String(token || '')).digest('hex');
+}
+
+function publicParticipant(participant) {
+  return {
+    id: participant._id,
+    shareId: participant.shareId,
+    name: participant.name,
+    email: participant.email,
+    notificationEnabled: participant.notificationEnabled !== false,
+    verifiedAt: participant.verifiedAt,
+    lastSeenAt: participant.lastSeenAt
+  };
+}
+
+/**
+ * Verified external identities for a ShareT link. Raw browser tokens are never
+ * stored; a participant may keep up to five verified browser sessions.
+ */
+const ShareParticipant = {
+  async createVerified({ shareId, email, name }) {
+    const normalizedEmail = email.toLowerCase().trim();
+    const normalizedName = String(name || '').replace(/\s+/g, ' ').trim().slice(0, 80);
+    const result = await databases.share_participants.find({
+      selector: { shareId, email: normalizedEmail },
+      limit: 10
+    });
+    const existing = result.docs[0] || null;
+    const accessToken = crypto.randomBytes(32).toString('base64url');
+    const accessTokenHash = hashParticipantToken(accessToken);
+    const now = new Date().toISOString();
+
+    const participant = existing
+      ? {
+          ...existing,
+          name: normalizedName,
+          accessTokenHashes: [accessTokenHash, ...(existing.accessTokenHashes || [])]
+            .filter((value, index, all) => all.indexOf(value) === index)
+            .slice(0, 5),
+          notificationEnabled: true,
+          verifiedAt: now,
+          lastSeenAt: now,
+          updatedAt: now
+        }
+      : {
+          _id: generateId(),
+          type: 'share_participant',
+          shareId,
+          email: normalizedEmail,
+          name: normalizedName,
+          accessTokenHashes: [accessTokenHash],
+          notificationEnabled: true,
+          verifiedAt: now,
+          lastSeenAt: now,
+          createdAt: now,
+          updatedAt: now
+        };
+
+    const writeResult = await databases.share_participants.put(participant);
+    participant._rev = writeResult.rev;
+    return { participant: publicParticipant(participant), accessToken };
+  },
+
+  async findByAccessToken(shareId, accessToken) {
+    if (!accessToken) return null;
+    const tokenHash = hashParticipantToken(accessToken);
+    const result = await databases.share_participants.find({
+      selector: { shareId },
+      limit: 1000
+    });
+    return result.docs.find(participant =>
+      Array.isArray(participant.accessTokenHashes) && participant.accessTokenHashes.includes(tokenHash)
+    ) || null;
+  },
+
+  async touch(participant) {
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const current = await databases.share_participants.get(participant._id);
+      const now = new Date().toISOString();
+      const updated = { ...current, lastSeenAt: now, updatedAt: now };
+      try {
+        await databases.share_participants.put(updated);
+        return publicParticipant(updated);
+      } catch (error) {
+        if (error.status !== 409 || attempt === 1) throw error;
+      }
+    }
+    return publicParticipant(participant);
+  },
+
+  toPublic: publicParticipant
+};
+
+/**
+ * Each freelancer comment waits for the next owner-authored Trello comment.
+ * Trello comments are not threaded, so this models a reply as the first owner
+ * comment posted after the freelancer's comment.
+ */
+const CommentThread = {
+  async create({ shareId, cardId, trelloCommentId, participant, commentText, commentDate }) {
+    const id = `reply_thread_${trelloCommentId}`;
+    try {
+      return await databases.comment_threads.get(id);
+    } catch (error) {
+      if (error.status !== 404) throw error;
+    }
+
+    const thread = {
+      _id: id,
+      type: 'comment_thread',
+      shareId,
+      cardId,
+      trelloCommentId,
+      participantId: participant._id,
+      participantEmail: participant.email,
+      participantName: participant.name,
+      commentText,
+      commentDate: commentDate || new Date().toISOString(),
+      status: 'awaiting_reply',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    const writeResult = await databases.comment_threads.put(thread);
+    thread._rev = writeResult.rev;
+    return thread;
+  },
+
+  async findPendingByShareId(shareId) {
+    const result = await databases.comment_threads.find({
+      selector: { shareId, status: 'awaiting_reply' },
+      limit: 1000
+    });
+    return result.docs;
+  },
+
+  async findAllPending() {
+    const result = await databases.comment_threads.find({
+      selector: { status: 'awaiting_reply' },
+      limit: 10000
+    });
+    return result.docs;
+  },
+
+  async markNotified(thread, reply) {
+    const updated = {
+      ...thread,
+      status: 'reply_notified',
+      replyActionId: reply.id,
+      replyDate: reply.date,
+      notifiedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    await databases.comment_threads.put(updated);
+    return updated;
   }
 };
 
@@ -711,6 +903,8 @@ module.exports = {
   SharedLink,
   AccessLog,
   EmailVerification,
+  ShareParticipant,
+  CommentThread,
   ResourceUsage,
   Billing,
   ResourcePricing

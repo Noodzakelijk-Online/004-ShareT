@@ -42,6 +42,7 @@ const sharedAccessRoutes = require('./routes/sharedAccessRoutes');
 const resourceRoutes = require('./routes/resourceRoutes');
 const billingRoutes = require('./routes/billingRoutes');
 const adminRoutes = require('./routes/adminRoutes');
+const { startReplyNotificationMonitor, stopReplyNotificationMonitor } = require('./services/replyNotificationService');
 
 // Create Express app
 const app = express();
@@ -311,6 +312,7 @@ const gracefulShutdown = async (signal) => {
   logger.info({ signal }, 'Received shutdown signal, closing gracefully...');
   
   clearCache();
+  stopReplyNotificationMonitor();
   await closeAll(); // Close PouchDB databases
   
   logger.info('Shutdown complete');
@@ -338,6 +340,7 @@ const startServer = async () => {
   try {
     // Initialize PouchDB databases
     await initDB();
+    startReplyNotificationMonitor();
     
     server = app.listen(PORT, '0.0.0.0', () => {
       logger.info({

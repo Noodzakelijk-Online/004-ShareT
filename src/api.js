@@ -186,14 +186,27 @@ export const sharedLinks = {
 
 // Shared Access API (for recipients / public access)
 export const sharedAccess = {
-  verifyEmail: (shareId, email) => apiRequest(`/shared-access/${shareId}/verify-email`, {
+  requestVerification: (shareId, identity) => apiRequest(`/shared-access/${shareId}/verify-email`, {
     method: 'POST',
-    body: JSON.stringify({ email }),
+    body: JSON.stringify(identity),
   }),
 
-  confirmEmail: (shareId, token) => apiRequest(`/shared-access/${shareId}/confirm-email/${token}`),
+  confirmVerification: (shareId, verification) => apiRequest(`/shared-access/${shareId}/confirm-verification`, {
+    method: 'POST',
+    body: JSON.stringify(verification),
+  }),
+
+  getParticipantStatus: (shareId, participantToken) => apiRequest(`/shared-access/${shareId}/participant-status`, {
+    method: 'POST',
+    body: JSON.stringify({ participantToken }),
+  }),
 
   getCard: (shareId) => apiRequest(`/shared-access/${shareId}`),
+
+  verifyPassword: (shareId, password) => apiRequest(`/shared-access/${shareId}/verify-password`, {
+    method: 'POST',
+    body: JSON.stringify({ password }),
+  }),
 
   // Fix #12/#13: Get comments with ISO timestamps, full history
   getComments: (shareId) => apiRequest(`/shared-access/${shareId}/comments`),
