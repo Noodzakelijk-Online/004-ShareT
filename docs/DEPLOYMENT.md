@@ -53,14 +53,29 @@ TRELLO_API_SECRET=...
 
 ## Trello notifications for external freelancers
 
-Freelancers should not need Trello accounts. Configure a dedicated Trello account such as `ShareT Updates Bot`, add that account to the relevant Trello boards, and put its token in:
+Freelancers do not need to sign in to Trello. Configure a dedicated Trello relay account such as `ShareT Updates`, add that account to the relevant Trello boards, and put its token in:
 
 ```env
 TRELLO_BOT_TOKEN=...
 SHARET_TRELLO_NOTIFY_USERNAME=noodzakelijkonline
 ```
 
-When a freelancer submits a ShareT comment, ShareT posts the update into Trello through the bot account and mentions the configured Trello username.
+The relay account must be different from the account named by `SHARET_TRELLO_NOTIFY_USERNAME`. Trello does not create notifications for actions performed by the same member, so the owner-token fallback can deliver a comment but cannot turn that owner's bell red.
+
+When a freelancer submits a ShareT comment, ShareT checks whether the relay is assigned to that card and adds it automatically when missing. The relay only needs to be added to each relevant board once; no manual card-by-card monitoring is required. ShareT then posts the update through the relay account and directly mentions the configured Trello username. The freelancer's name is the first, bold part of the comment. The Admin tab reports whether the shared relay is configured, and each successful comment response records both `relayAssignment` and `bellExpected`.
+
+If the relay is not a member of the board, Trello will reject the automatic card assignment. Add the relay to the board and retry the ShareT comment. For strict notification delivery, set `SHARET_ALLOW_OWNER_COMMENT_FALLBACK=false` so an assignment problem cannot silently fall back to the owner's token.
+
+### Native Trello author names
+
+Trello's comment API does not accept an author override: the visible author is always the member that owns the posting token. If a freelancer must appear in Trello's native author row, create a clearly attributed admin-managed relay account such as `Kamal Uddin via ShareT`, add it to the board, and put its token in the share's `Native Trello Author Token` advanced option.
+
+The freelancer never needs the account credentials or access to Trello. A single shared relay account cannot safely rotate its display name between freelancers because Trello member identity is account-wide.
+
+There are therefore two supported modes:
+
+- Shared relay: one ShareT Trello account, compact bold freelancer name in the comment, and a normal owner notification.
+- Per-freelancer relay: native Trello author name plus a normal owner notification, still without requiring the freelancer to use Trello.
 
 For extra reliability, configure email fallback notifications:
 

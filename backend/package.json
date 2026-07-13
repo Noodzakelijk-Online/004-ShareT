@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "test": "node -e \"console.log('Tests passed')\"",
+    "test": "node --test test/*.test.js",
     "build": "echo 'Backend ready'"
   },
   "dependencies": {

@@ -26,9 +26,8 @@ const App = () => {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
   const isAdmin = currentUser?.email === ADMIN_EMAIL;
-  const { credits, freeSharesLeft, deductCredit, updateCredits } = useCredits();
+  const { credits, deductCredit, updateCredits } = useCredits();
   const [shareType, setShareType] = useState("card");
-  const [cardCount, setCardCount] = useState(1);
   const [trelloData, setTrelloData] = useState(null);
   const [showQRCode, setShowQRCode] = useState(false);
   const [currentShareLink, setCurrentShareLink] = useState('');
@@ -126,12 +125,8 @@ const App = () => {
                   <NewShareForm
                     shareType={shareType}
                     setShareType={setShareType}
-                    cardCount={cardCount}
-                    setCardCount={setCardCount}
                     credits={credits}
-                    freeSharesLeft={freeSharesLeft}
                     deductCredit={deductCredit}
-                    updateCredits={updateCredits}
                     onCreateLink={handleCreateLink}
                     trelloData={trelloData}
                     onShowQRCode={handleShowQRCode}

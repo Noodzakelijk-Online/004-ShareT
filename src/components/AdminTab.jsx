@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
-import { RefreshCw, Server, Users, Link2, CreditCard, Activity, Database, Cpu } from "lucide-react";
+import { RefreshCw, Server, Users, Link2, CreditCard, Activity, Database, Cpu, Bell } from "lucide-react";
 import { admin as adminAPI } from '../api';
 
 const fmt = (n) => (n === null || n === undefined ? '—' : n);
@@ -95,6 +95,33 @@ export default function AdminTab() {
         <StatCard icon={Database} title="Node" value={status?.nodeVersion ?? '…'}
           sub={status?.environment} />
       </div>
+
+      {/* Trello notification readiness */}
+      {status?.trelloNotifications && (
+        <Card>
+          <CardHeader className="pb-2 pt-4">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Bell className="h-4 w-4" /> Trello freelancer notifications
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="text-xs space-y-2">
+            <div className="flex items-center gap-2">
+              <Badge variant={status.trelloNotifications.sharedRelayConfigured ? 'default' : 'destructive'}>
+                {status.trelloNotifications.sharedRelayConfigured ? 'Relay configured' : 'Relay token missing'}
+              </Badge>
+              <span className="text-muted-foreground">
+                Target: {status.trelloNotifications.targetMode === 'explicit-username' ? 'configured username' : 'connected Trello owner'}
+              </span>
+            </div>
+            <p className="text-muted-foreground">
+              Add the relay to each board once. ShareT automatically assigns it to a card before posting the first freelancer comment there.
+            </p>
+            <p className="text-muted-foreground">
+              Native freelancer names use the optional per-share relay token; successful comment responses report whether a bell notification is expected.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Shares */}
       <div className="grid grid-cols-3 gap-3">
