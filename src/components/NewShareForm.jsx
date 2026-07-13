@@ -8,7 +8,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { sharedLinks } from '../api';
 
-const NewShareForm = ({ shareType, setShareType, cardCount, setCardCount, credits, freeSharesLeft, deductCredit, updateCredits, onCreateLink, trelloData, onShowQRCode }) => {
+const NewShareForm = ({ shareType, setShareType, credits, deductCredit, onCreateLink, trelloData, onShowQRCode }) => {
   const { toast: uiToast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
   const [selectedList, setSelectedList] = useState(null);
@@ -350,7 +350,7 @@ const NewShareForm = ({ shareType, setShareType, cardCount, setCardCount, credit
         </div>
       </div>
       
-      {/* Advanced: Guest Trello Token */}
+      {/* Advanced: native Trello author relay */}
       <div>
         <button
           type="button"
@@ -364,7 +364,7 @@ const NewShareForm = ({ shareType, setShareType, cardCount, setCardCount, credit
           <div className="mt-2 p-3 border rounded-lg bg-muted/20 space-y-2">
             <div>
               <Label htmlFor="guestToken" className="text-xs flex items-center gap-1">
-                Guest Trello Token
+                Native Trello Author Token
                 <span className="text-muted-foreground font-normal">(optional)</span>
                 <TooltipProvider>
                   <Tooltip>
@@ -372,7 +372,7 @@ const NewShareForm = ({ shareType, setShareType, cardCount, setCardCount, credit
                       <Info className="h-3 w-3 text-muted-foreground cursor-help" />
                     </TooltipTrigger>
                     <TooltipContent className="max-w-xs">
-                      <p>Create a real Trello account for this client (e.g. named "John Doe"), add it to your board, then generate their API token. Comments will appear in Trello as if from their own account — no bold name prefix.</p>
+                      <p>Use an admin-managed relay account named for this freelancer, for example Kamal Uddin via ShareT, add it to the board, and paste its token. The freelancer never needs to sign in to Trello, while comments get a native Trello author row.</p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
@@ -381,7 +381,7 @@ const NewShareForm = ({ shareType, setShareType, cardCount, setCardCount, credit
                 <Input
                   id="guestToken"
                   type={showGuestToken ? 'text' : 'password'}
-                  placeholder="Paste the client's Trello API token here"
+                  placeholder="Paste the admin-managed relay token"
                   className="h-9 text-sm font-mono"
                   value={guestTrelloToken}
                   onChange={e => setGuestTrelloToken(e.target.value)}
@@ -391,7 +391,7 @@ const NewShareForm = ({ shareType, setShareType, cardCount, setCardCount, credit
                 </Button>
               </div>
               <p className="text-[11px] text-muted-foreground mt-1">
-                Get the token: log in as the client at{' '}
+                Get the token: sign in to the admin-managed relay account at{' '}
                 <a href="https://trello.com/app-key" target="_blank" rel="noopener noreferrer" className="underline">trello.com/app-key</a>,
                 click <em>Token</em> and paste it here.
               </p>

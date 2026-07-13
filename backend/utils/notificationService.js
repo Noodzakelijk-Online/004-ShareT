@@ -30,7 +30,7 @@ function buildTransport() {
   });
 }
 
-function buildEmailBody({ share, authorName, authorEmail, text, trelloCommentUrl, postedBy }) {
+function buildEmailBody({ share, authorName, authorEmail, text, trelloCommentUrl, postedBy, bellExpected }) {
   return [
     'A new ShareT update was submitted.',
     '',
@@ -38,6 +38,7 @@ function buildEmailBody({ share, authorName, authorEmail, text, trelloCommentUrl
     `Board: ${share.boardName || 'Unknown board'}`,
     `From: ${authorName || 'External ShareT user'}${authorEmail ? ` <${authorEmail}>` : ''}`,
     `Posted to Trello by: ${postedBy || 'unknown'}`,
+    `Trello bell expected: ${bellExpected ? 'yes' : 'no'}`,
     trelloCommentUrl ? `Trello card: ${trelloCommentUrl}` : null,
     '',
     'Message:',
