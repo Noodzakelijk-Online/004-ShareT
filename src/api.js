@@ -97,10 +97,6 @@ export const auth = {
     body: JSON.stringify(passwordData),
   }),
 
-  deleteAccount: () => apiRequest('/auth/account', {
-    method: 'DELETE',
-  }),
-
   forgotPassword: (email) => apiRequest('/auth/forgot-password', {
     method: 'POST',
     body: JSON.stringify({ email }),
@@ -110,8 +106,6 @@ export const auth = {
     method: 'POST',
     body: JSON.stringify({ password }),
   }),
-
-  verifyEmail: (token) => apiRequest(`/auth/verify-email/${token}`),
 
   getCredits: () => apiRequest('/auth/credits'),
 };
@@ -190,7 +184,6 @@ export const sharedLinks = {
     method: 'DELETE',
   }),
 
-  getAccessLogs: (linkId) => apiRequest(`/shared-links/${linkId}/access-logs`),
 };
 
 // Shared Access API (for recipients / public access)
@@ -329,17 +322,6 @@ export const billing = {
     body: JSON.stringify({ reason }),
   }),
 
-  getPricingRates: () => apiRequest('/billing/pricing-rates'),
-};
-
-// GitHub API (if needed)
-export const github = {
-  push: (repoData) => apiRequest('/github/push', {
-    method: 'POST',
-    body: JSON.stringify(repoData),
-  }),
-
-  getStatus: () => apiRequest('/github/status'),
 };
 
 export default {
@@ -349,5 +331,4 @@ export default {
   sharedAccess,
   resources,
   billing,
-  github,
 };
