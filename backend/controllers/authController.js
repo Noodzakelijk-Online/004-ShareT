@@ -9,6 +9,7 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const { User } = require('../db/pouchdb');
+const { presentUser } = require('../utils/userPresentation');
 
 function createMailTransporter() {
   return nodemailer.createTransport({
@@ -81,13 +82,7 @@ exports.register = async (req, res) => {
       message: 'User registered successfully',
       token,
       refreshToken,
-      user: {
-        _id: user._id,
-        id: user._id,
-        email: user.email,
-        name: user.name,
-        role: user.role
-      }
+      user: presentUser(user)
     });
   } catch (error) {
     console.error('Registration error:', error);
@@ -150,13 +145,7 @@ exports.login = async (req, res) => {
       message: 'Login successful',
       token,
       refreshToken,
-      user: {
-        _id: user._id,
-        id: user._id,
-        email: user.email,
-        name: user.name,
-        role: user.role
-      }
+      user: presentUser(user)
     });
   } catch (error) {
     console.error('Login error:', error);
@@ -210,14 +199,7 @@ exports.getCurrentUser = async (req, res) => {
 
     res.json({
       success: true,
-      user: {
-        _id: user._id,
-        id: user._id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        createdAt: user.createdAt
-      }
+      user: presentUser(user)
     });
   } catch (error) {
     console.error('Get current user error:', error);
@@ -238,7 +220,16 @@ exports.updateProfile = async (req, res) => {
     const { name, email } = req.body;
     const updates = {};
 
-    if (name) updates.name = name;
+    if (name !== undefined) {
+      const trimmedName = String(name).trim();
+      if (!trimmedName) {
+        return res.status(400).json({
+          success: false,
+          message: 'Name cannot be empty'
+        });
+      }
+      updates.name = trimmedName;
+    }
     if (email) {
       // Check if email is already taken
       const existingUser = await User.findByEmail(email);
@@ -256,13 +247,7 @@ exports.updateProfile = async (req, res) => {
     res.json({
       success: true,
       message: 'Profile updated successfully',
-      user: {
-        _id: user._id,
-        id: user._id,
-        email: user.email,
-        name: user.name,
-        role: user.role
-      }
+      user: presentUser(user)
     });
   } catch (error) {
     console.error('Update profile error:', error);

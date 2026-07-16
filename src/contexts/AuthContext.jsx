@@ -5,6 +5,22 @@ import { auth as authAPI } from '../api';
 
 const AuthContext = createContext();
 
+const normalizeUser = (user) => {
+  if (!user) return null;
+  const fallbackName = user.email?.split('@')[0] || 'ShareT user';
+  const fullName = String(user.fullName || user.name || fallbackName).trim() || fallbackName;
+  const createdAt = user.createdAt && !Number.isNaN(new Date(user.createdAt).getTime())
+    ? user.createdAt
+    : null;
+
+  return {
+    ...user,
+    name: fullName,
+    fullName,
+    createdAt,
+  };
+};
+
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
@@ -27,7 +43,7 @@ export const AuthProvider = ({ children }) => {
           // Verify token and get current user from backend
           const response = await authAPI.getCurrentUser();
           if (response.success) {
-            const user = response.user || response.data?.user || response.data;
+            const user = normalizeUser(response.user || response.data?.user || response.data);
             setCurrentUser(user);
             // Update localStorage with fresh user data
             localStorage.setItem('sharetUser', JSON.stringify(user));
@@ -60,7 +76,8 @@ export const AuthProvider = ({ children }) => {
       });
 
       if (response.success) {
-        const { token, user } = response;
+        const { token } = response;
+        const user = normalizeUser(response.user);
         
         // Store JWT token
         localStorage.setItem('token', token);
@@ -94,7 +111,8 @@ export const AuthProvider = ({ children }) => {
       });
 
       if (response.success) {
-        const { token, user } = response;
+        const { token } = response;
+        const user = normalizeUser(response.user);
         
         // Store JWT token
         localStorage.setItem('token', token);
@@ -143,7 +161,7 @@ export const AuthProvider = ({ children }) => {
       const response = await authAPI.updateProfile(profileData);
       
       if (response.success) {
-        const updatedUser = response.user || response.data?.user || response.data;
+        const updatedUser = normalizeUser(response.user || response.data?.user || response.data);
         setCurrentUser(updatedUser);
         localStorage.setItem('sharetUser', JSON.stringify(updatedUser));
         toast.success("Profile updated successfully");
