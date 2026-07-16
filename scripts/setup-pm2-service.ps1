@@ -99,7 +99,7 @@ Write-Host "Testing server health..." -ForegroundColor Yellow
 Start-Sleep -Seconds 3
 
 try {
-    $response = Invoke-WebRequest -Uri "http://localhost:5000/health" -UseBasicParsing -TimeoutSec 5
+    $response = Invoke-WebRequest -Uri "http://localhost:5005/health" -UseBasicParsing -TimeoutSec 5
     $health = $response.Content | ConvertFrom-Json
     
     if ($health.status -eq "healthy") {
@@ -131,7 +131,7 @@ Write-Host "  Status:        pm2 status" -ForegroundColor White
 Write-Host "  Delete:        pm2 delete sharet" -ForegroundColor White
 Write-Host ""
 Write-Host "Access your application at:" -ForegroundColor Yellow
-Write-Host "  Local:  http://localhost:5000" -ForegroundColor White
+Write-Host "  Local:  http://localhost:5005" -ForegroundColor White
 Write-Host "  Public: https://your-tunnel-name.trycloudflare.com" -ForegroundColor White
 Write-Host ""
 

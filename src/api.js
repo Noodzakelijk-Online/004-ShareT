@@ -114,8 +114,6 @@ export const auth = {
   verifyEmail: (token) => apiRequest(`/auth/verify-email/${token}`),
 
   getCredits: () => apiRequest('/auth/credits'),
-
-  deductCredit: () => apiRequest('/auth/credits/deduct', { method: 'POST' }),
 };
 
 // Trello API

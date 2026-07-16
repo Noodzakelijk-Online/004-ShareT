@@ -4,27 +4,34 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Clipboard, Key } from 'lucide-react';
+import { Clipboard } from 'lucide-react';
 import { toast } from 'sonner';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 const codeSnippets = {
-  node: `// Using Node.js with Axios
+  node: `// Use the URL of your own ShareT installation
 const axios = require('axios');
 
-const API_KEY = 'your_api_key';
+const SHARET_URL = 'https://sharet.example.com';
+const ACCESS_TOKEN = 'token_returned_by_login';
 
-async function createShareLink(boardId, options = {}) {
+async function createShareLink(card) {
   try {
-    const response = await axios.post('https://api.sharet.app/v1/share', {
-      resource_id: boardId,
-      resource_type: 'board',
-      expiry_days: options.expiryDays || 30,
-      read_only: options.readOnly !== false,
-      allow_comments: options.allowComments === true
+    const response = await axios.post(\`${'${SHARET_URL}'}/api/shared-links\`, {
+      cardId: card.id,
+      cardName: card.name,
+      boardId: card.boardId,
+      boardName: card.boardName,
+      permissions: {
+        canView: true,
+        canComment: true,
+        canUpload: true,
+        canDownload: true,
+        canSetDueDate: false
+      }
     }, {
       headers: {
-        'Authorization': \`Bearer \${API_KEY}\`,
+        'Authorization': \`Bearer \${ACCESS_TOKEN}\`,
         'Content-Type': 'application/json'
       }
     });
@@ -35,73 +42,87 @@ async function createShareLink(boardId, options = {}) {
     throw error;
   }
 }`,
-  python: `# Using Python with requests
+  python: `# Use the URL of your own ShareT installation
 import requests
 
-API_KEY = 'your_api_key'
+SHARET_URL = 'https://sharet.example.com'
+ACCESS_TOKEN = 'token_returned_by_login'
 
-def create_share_link(board_id, **options):
-    url = 'https://api.sharet.app/v1/share'
+def create_share_link(card):
+    url = f'{SHARET_URL}/api/shared-links'
     headers = {
-        'Authorization': f'Bearer {API_KEY}',
+        'Authorization': f'Bearer {ACCESS_TOKEN}',
         'Content-Type': 'application/json'
     }
     payload = {
-        'resource_id': board_id,
-        'resource_type': 'board',
-        'expiry_days': options.get('expiry_days', 30),
-        'read_only': options.get('read_only', True),
-        'allow_comments': options.get('allow_comments', False)
+        'cardId': card['id'],
+        'cardName': card['name'],
+        'boardId': card['boardId'],
+        'boardName': card['boardName'],
+        'permissions': {
+            'canView': True,
+            'canComment': True,
+            'canUpload': True,
+            'canDownload': True,
+            'canSetDueDate': False
+        }
     }
     
     response = requests.post(url, json=payload, headers=headers)
     response.raise_for_status()
     return response.json()`,
-  curl: `# Using cURL
-curl -X POST https://api.sharet.app/v1/share \\
-  -H "Authorization: Bearer your_api_key" \\
+  curl: `# Use the URL of your own ShareT installation
+curl -X POST https://sharet.example.com/api/shared-links \\
+  -H "Authorization: Bearer token_returned_by_login" \\
   -H "Content-Type: application/json" \\
   -d '{
-    "resource_id": "board_id",
-    "resource_type": "board",
-    "expiry_days": 30,
-    "read_only": true,
-    "allow_comments": false
+    "cardId": "trello_card_id",
+    "cardName": "Card name",
+    "boardId": "trello_board_id",
+    "boardName": "Board name",
+    "permissions": {
+      "canView": true,
+      "canComment": true,
+      "canUpload": true,
+      "canDownload": true,
+      "canSetDueDate": false
+    }
   }'`
 };
 
 const endpoints = [
   {
     method: 'POST',
-    path: '/v1/share',
+    path: '/api/shared-links',
     description: 'Create a new share link',
     parameters: [
-      { name: 'resource_id', type: 'string', required: true, description: 'ID of the Trello resource to share' },
-      { name: 'resource_type', type: 'string', required: true, description: 'Type of resource (board, list, card)' },
-      { name: 'expiry_days', type: 'integer', required: false, description: 'Number of days until the link expires' },
-      { name: 'read_only', type: 'boolean', required: false, description: 'Whether the shared resource is read-only' },
-      { name: 'allow_comments', type: 'boolean', required: false, description: 'Whether comments are allowed' }
+      { name: 'cardId', type: 'string', required: true, description: 'Trello card ID or short link' },
+      { name: 'cardName', type: 'string', required: true, description: 'Display name of the Trello card' },
+      { name: 'boardId', type: 'string', required: false, description: 'Trello board ID' },
+      { name: 'boardName', type: 'string', required: false, description: 'Display name of the Trello board' },
+      { name: 'permissions', type: 'object', required: false, description: 'View, comment, upload, download, and due-date permissions' },
+      { name: 'expiresAt', type: 'ISO date', required: false, description: 'Expiry date and time' }
     ]
   },
   {
     method: 'GET',
-    path: '/v1/share/{share_id}',
+    path: '/api/shared-links/{shareId}',
     description: 'Get information about a share link',
     parameters: [
-      { name: 'share_id', type: 'string', required: true, description: 'ID of the share link' }
+      { name: 'shareId', type: 'string', required: true, description: 'ID of the share link' }
     ]
   },
   {
     method: 'DELETE',
-    path: '/v1/share/{share_id}',
+    path: '/api/shared-links/{shareId}',
     description: 'Delete a share link',
     parameters: [
-      { name: 'share_id', type: 'string', required: true, description: 'ID of the share link to delete' }
+      { name: 'shareId', type: 'string', required: true, description: 'ID of the share link to delete' }
     ]
   },
   {
     method: 'GET',
-    path: '/v1/shares',
+    path: '/api/shared-links',
     description: 'List all your share links',
     parameters: [
       { name: 'page', type: 'integer', required: false, description: 'Page number for pagination' },
@@ -114,20 +135,10 @@ const ApiDocumentation = () => {
   const [language, setLanguage] = useState('node');
   const [activeTab, setActiveTab] = useState('overview');
   
-  const copyApiKey = () => {
-    // In a real app, this would copy the user's actual API key
-    navigator.clipboard.writeText('sk_test_12345abcdef');
-    toast.success('API key copied to clipboard');
-  };
-  
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div>
         <h2 className="text-2xl font-bold">ShareT API Documentation</h2>
-        <Button onClick={copyApiKey} variant="outline">
-          <Key className="mr-2 h-4 w-4" />
-          Copy API Key
-        </Button>
       </div>
       
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -152,15 +163,14 @@ const ApiDocumentation = () => {
               </p>
               <h3 className="text-lg font-semibold mt-4">Authentication</h3>
               <p>
-                All API requests must include your API key in the Authorization header as a Bearer token.
+                Sign in through <code>/api/auth/login</code> and use the returned access token in the Authorization header. ShareT does not issue separate API keys.
               </p>
               <pre className="bg-muted p-4 rounded-md text-sm">
-                Authorization: Bearer your_api_key
+                Authorization: Bearer your_access_token
               </pre>
               <h3 className="text-lg font-semibold mt-4">Rate Limits</h3>
               <p>
-                The API has a rate limit of 100 requests per minute per API key. If you exceed this limit, 
-                you'll receive a 429 Too Many Requests response.
+                Requests are rate limited by the ShareT server. The exact limit is controlled by the server configuration; a client that exceeds it receives a 429 response.
               </p>
             </CardContent>
           </Card>

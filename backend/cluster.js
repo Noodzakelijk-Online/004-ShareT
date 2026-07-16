@@ -90,7 +90,7 @@ throng({
     });
     
     // Handle unhandled promise rejections
-    process.on('unhandledRejection', (reason, promise) => {
+    process.on('unhandledRejection', (reason) => {
       console.error(`[Worker ${id}] Unhandled Rejection:`, reason);
     });
   }

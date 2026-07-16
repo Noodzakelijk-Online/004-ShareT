@@ -41,18 +41,33 @@ echo   - npm: OK
 
 echo.
 echo [2/5] Installing dependencies...
-call npm run install:all
+call npm ci
 if %errorLevel% neq 0 (
     echo ERROR: Failed to install dependencies
     pause
     exit /b 1
 )
+pushd backend
+call npm ci
+if %errorLevel% neq 0 (
+    popd
+    echo ERROR: Failed to install backend dependencies
+    pause
+    exit /b 1
+)
+popd
 
 echo.
 echo [3/5] Building frontend...
 call npm run build
 if %errorLevel% neq 0 (
     echo ERROR: Failed to build frontend
+    pause
+    exit /b 1
+)
+call node scripts\copy-frontend-build.js
+if %errorLevel% neq 0 (
+    echo ERROR: Failed to copy frontend build
     pause
     exit /b 1
 )
@@ -80,7 +95,7 @@ echo ========================================
 echo.
 echo ShareT is now running!
 echo.
-echo Local URL:  http://localhost:5000
+echo Local URL:  http://localhost:5005
 echo.
 echo Next steps:
 echo 1. Configure Cloudflare Tunnel for public access

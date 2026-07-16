@@ -65,7 +65,7 @@ const httpLogger = pinoHttp({
   },
   
   // Custom success message
-  customSuccessMessage: (req, res) => {
+  customSuccessMessage: (req) => {
     return `${req.method} ${req.url} completed`;
   },
   

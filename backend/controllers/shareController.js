@@ -4,7 +4,7 @@
  * Uses PouchDB for platform-agnostic data storage
  */
 
-const { SharedLink, AccessLog, generateShareId, TrelloConnection } = require('../db/pouchdb');
+const { SharedLink, TrelloConnection, User } = require('../db/pouchdb');
 const { ensureWebhookForShare } = require('../services/trelloWebhookService');
 const { normalizePagination } = require('../utils/pagination');
 
@@ -84,33 +84,62 @@ exports.createShare = async (req, res) => {
     for (const id of idsToCheck) {
       const existing = await SharedLink.findActiveByUserAndCard(userId, id);
       if (existing) {
+        const creditsRemaining = await User.getCredits(userId);
         return res.status(200).json({
           success: true,
           duplicate: true,
           message: 'An active share link already exists for this card.',
-          data: existing
+          data: existing,
+          creditsRemaining
         });
       }
     }
 
-    const share = await SharedLink.create({
-      userId,
-      cardId,
-      cardName,
-      boardId,
-      boardName,
-      permissions: permissions || {
-        canView: true,
-        canComment: false,
-        canUpload: false,
-        canDownload: true,
-        canSetDueDate: false
-      },
-      allowedEmails: allowedEmails || [],
-      password: password || null,
-      expiresAt: expiresAt || null,
-      guestTrelloToken: guestTrelloToken || null
-    });
+    let creditsRemaining;
+    let creditWasDeducted = false;
+    try {
+      creditsRemaining = await User.deductCredit(userId);
+      creditWasDeducted = creditsRemaining !== null;
+    } catch (error) {
+      if (error.message === 'Insufficient credits') {
+        return res.status(402).json({
+          success: false,
+          message: 'Insufficient credits'
+        });
+      }
+      throw error;
+    }
+
+    let share;
+    try {
+      share = await SharedLink.create({
+        userId,
+        cardId,
+        cardName,
+        boardId,
+        boardName,
+        permissions: permissions || {
+          canView: true,
+          canComment: false,
+          canUpload: false,
+          canDownload: true,
+          canSetDueDate: false
+        },
+        allowedEmails: allowedEmails || [],
+        password: password || null,
+        expiresAt: expiresAt || null,
+        guestTrelloToken: guestTrelloToken || null
+      });
+    } catch (error) {
+      if (creditWasDeducted) {
+        try {
+          await User.addCredits(userId, 1);
+        } catch (refundError) {
+          console.error('Share creation failed and its credit refund also failed:', refundError);
+        }
+      }
+      throw error;
+    }
 
     let webhook = { enabled: false, reason: 'commenting-disabled' };
     if (share.permissions?.canComment) {
@@ -125,7 +154,8 @@ exports.createShare = async (req, res) => {
     res.status(201).json({
       success: true,
       data: share,
-      webhook
+      webhook,
+      creditsRemaining
     });
   } catch (error) {
     console.error('Create share error:', error);

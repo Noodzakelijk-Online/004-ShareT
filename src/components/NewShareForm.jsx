@@ -9,7 +9,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { sharedLinks } from '../api';
 import TrelloTargetPicker from './TrelloTargetPicker';
 
-const NewShareForm = ({ shareType, setShareType, credits, deductCredit, onCreateLink, trelloData, onShowQRCode }) => {
+const NewShareForm = ({ shareType, setShareType, credits, onCreditsChanged, onCreateLink, trelloData, onShowQRCode }) => {
   const { toast: uiToast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
   const [selectedList, setSelectedList] = useState(null);
@@ -119,8 +119,6 @@ const NewShareForm = ({ shareType, setShareType, credits, deductCredit, onCreate
               title: "Existing link reused",
               description: "An active share link for this card already exists, so we returned it instead of creating a duplicate. No credit was used.",
             });
-          } else if (deductCredit) {
-            await deductCredit();
           }
         }
       } else if (shareType === "list" && selectedList) {
@@ -152,6 +150,7 @@ const NewShareForm = ({ shareType, setShareType, credits, deductCredit, onCreate
       }
 
       // Update credits
+      await onCreditsChanged?.();
       onCreateLink();
 
       // Fix #9: Show green checkmark instead of toast popup

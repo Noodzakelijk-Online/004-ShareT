@@ -27,7 +27,7 @@ const App = () => {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
   const isAdmin = currentUser?.email === ADMIN_EMAIL;
-  const { credits, deductCredit, updateCredits } = useCredits();
+  const { credits, refetch: refetchCredits } = useCredits();
   const [shareType, setShareType] = useState("card");
   const [trelloData, setTrelloData] = useState(null);
   const [showQRCode, setShowQRCode] = useState(false);
@@ -132,7 +132,7 @@ const App = () => {
                 {!isAdmin && credits !== Infinity && (
                   <div className="flex items-center justify-between text-xs text-muted-foreground mb-2 px-1">
                     <span>{credits} credits remaining</span>
-                    <PaymentDialog onPaymentSuccess={updateCredits} />
+                    <PaymentDialog />
                   </div>
                 )}
                 <TabsContent value="newShare">
@@ -140,7 +140,7 @@ const App = () => {
                     shareType={shareType}
                     setShareType={setShareType}
                     credits={credits}
-                    deductCredit={deductCredit}
+                    onCreditsChanged={refetchCredits}
                     onCreateLink={handleCreateLink}
                     trelloData={trelloData}
                     onShowQRCode={handleShowQRCode}

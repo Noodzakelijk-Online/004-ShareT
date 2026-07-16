@@ -30,25 +30,10 @@ export const useCredits = () => {
 
   useEffect(() => { fetchCredits(); }, [fetchCredits]);
 
-  const deductCredit = useCallback(async () => {
-    if (credits === Infinity) return true;
-    try {
-      const res = await authAPI.deductCredit();
-      if (res.success) { setCredits(res.credits); return true; }
-      return false;
-    } catch { return false; }
-  }, [credits]);
-
-  const updateCredits = useCallback((fn) => {
-    setCredits(prev => (prev === Infinity ? Infinity : (typeof fn === 'function' ? fn(prev) : fn)));
-  }, []);
-
   return {
     credits,
     freeSharesLeft: credits === Infinity ? Infinity : credits,
     loading,
-    deductCredit,
-    updateCredits,
     refetch: fetchCredits
   };
 };

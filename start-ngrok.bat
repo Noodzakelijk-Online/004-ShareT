@@ -2,7 +2,7 @@
 :: ============================================================
 ::  ShareT - Ngrok Startup Script
 ::  Runs ngrok on port 5005 with your static domain
-::  Place this file in: C:\...\004-ShareT-main\
+::  Run this file from the ShareT repository root.
 :: ============================================================
 
 :: Change to this script's folder
