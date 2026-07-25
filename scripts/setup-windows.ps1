@@ -3,7 +3,7 @@ $projectRoot = Split-Path -Parent $PSScriptRoot
 Set-Location -LiteralPath $projectRoot
 
 if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
-    throw 'Node.js 18 or newer is required.'
+    throw 'Node.js 22 or newer is required.'
 }
 if (-not (Get-Command npm.cmd -ErrorAction SilentlyContinue)) {
     throw 'npm is required.'

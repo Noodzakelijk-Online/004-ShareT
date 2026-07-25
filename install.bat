@@ -5,7 +5,7 @@ cd /d "%~dp0"
 
 where node >nul 2>&1
 if errorlevel 1 (
-  echo [ERROR] Node.js 18 or newer is required.
+  echo [ERROR] Node.js 22 or newer is required.
   echo Install the current LTS release from https://nodejs.org and try again.
   pause
   exit /b 1

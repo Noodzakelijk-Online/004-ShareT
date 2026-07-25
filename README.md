@@ -21,7 +21,7 @@ No Trello Power-Up panel is required for the conversation flow.
 
 ## Requirements
 
-- Node.js 18 or newer
+- Node.js 22 or newer
 - A Trello API key and secret
 - A stable public HTTPS URL for production OAuth callbacks and Trello webhooks
 - SMTP credentials for freelancer verification and reply email
