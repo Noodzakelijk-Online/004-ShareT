@@ -4,7 +4,7 @@
  * Uses PouchDB for platform-agnostic data storage
  */
 
-const { User, Billing, ResourceUsage, ResourcePricing } = require('../db/pouchdb');
+const { Billing, ResourceUsage, ResourcePricing } = require('../db/pouchdb');
 
 // Helper to get current billing period
 const getCurrentBillingPeriod = () => {

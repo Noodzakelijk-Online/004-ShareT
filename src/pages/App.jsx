@@ -19,6 +19,7 @@ import { useAuth } from '../contexts/AuthContext';
 import ApiDocumentation from '../components/ApiDocumentation';
 import { PaymentDialog } from '../components/PaymentDialog';
 import { ThemeToggle } from '../components/ThemeToggle';
+import { trello } from '../api';
 
 const ADMIN_EMAIL = 'noodzakelijkonline@gmail.com';
 
@@ -26,12 +27,13 @@ const App = () => {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
   const isAdmin = currentUser?.email === ADMIN_EMAIL;
-  const { credits, deductCredit, updateCredits } = useCredits();
+  const { credits, refetch: refetchCredits } = useCredits();
   const [shareType, setShareType] = useState("card");
   const [trelloData, setTrelloData] = useState(null);
   const [showQRCode, setShowQRCode] = useState(false);
   const [currentShareLink, setCurrentShareLink] = useState('');
   const [showApiDocs, setShowApiDocs] = useState(false);
+  const [isDisconnecting, setIsDisconnecting] = useState(false);
   const { toast } = useToast();
   const qrRef = useRef(null);
 
@@ -59,12 +61,24 @@ const App = () => {
     toast({ title: 'Link copied', description: 'Share link copied to clipboard.' });
   };
 
-  const handleDisconnect = () => {
-    setTrelloData(null);
-    toast({
-      title: "Disconnected from Trello",
-      description: "You have been successfully disconnected from your Trello account.",
-    });
+  const handleDisconnect = async () => {
+    setIsDisconnecting(true);
+    try {
+      await trello.disconnect();
+      setTrelloData(null);
+      toast({
+        title: "Disconnected from Trello",
+        description: "The Trello connection has been removed from ShareT.",
+      });
+    } catch (error) {
+      toast({
+        title: "Disconnect failed",
+        description: error.message || "ShareT could not disconnect Trello.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDisconnecting(false);
+    }
   };
   return (
     <div className="bg-background text-foreground min-h-screen p-8">
@@ -97,9 +111,9 @@ const App = () => {
               ) : (
                 <div className="flex items-center space-x-2">
                   <span>Connected as {trelloData.member?.fullName}</span>
-                  <Button variant="outline" size="sm" onClick={handleDisconnect}>
+                  <Button variant="outline" size="sm" onClick={handleDisconnect} disabled={isDisconnecting}>
                     <LogOut className="mr-2 h-4 w-4" />
-                    Disconnect
+                    {isDisconnecting ? 'Disconnecting…' : 'Disconnect'}
                   </Button>
                 </div>
               )}
@@ -118,7 +132,7 @@ const App = () => {
                 {!isAdmin && credits !== Infinity && (
                   <div className="flex items-center justify-between text-xs text-muted-foreground mb-2 px-1">
                     <span>{credits} credits remaining</span>
-                    <PaymentDialog onPaymentSuccess={updateCredits} />
+                    <PaymentDialog />
                   </div>
                 )}
                 <TabsContent value="newShare">
@@ -126,7 +140,7 @@ const App = () => {
                     shareType={shareType}
                     setShareType={setShareType}
                     credits={credits}
-                    deductCredit={deductCredit}
+                    onCreditsChanged={refetchCredits}
                     onCreateLink={handleCreateLink}
                     trelloData={trelloData}
                     onShowQRCode={handleShowQRCode}

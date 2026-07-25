@@ -97,10 +97,6 @@ export const auth = {
     body: JSON.stringify(passwordData),
   }),
 
-  deleteAccount: () => apiRequest('/auth/account', {
-    method: 'DELETE',
-  }),
-
   forgotPassword: (email) => apiRequest('/auth/forgot-password', {
     method: 'POST',
     body: JSON.stringify({ email }),
@@ -111,11 +107,7 @@ export const auth = {
     body: JSON.stringify({ password }),
   }),
 
-  verifyEmail: (token) => apiRequest(`/auth/verify-email/${token}`),
-
   getCredits: () => apiRequest('/auth/credits'),
-
-  deductCredit: () => apiRequest('/auth/credits/deduct', { method: 'POST' }),
 };
 
 // Trello API
@@ -173,7 +165,13 @@ export const sharedLinks = {
     body: JSON.stringify(linkData),
   }),
 
-  getAll: () => apiRequest('/shared-links'),
+  getAll: ({ page = 1, limit = 25 } = {}) => {
+    const params = new URLSearchParams({
+      page: String(page),
+      limit: String(limit),
+    });
+    return apiRequest(`/shared-links?${params.toString()}`);
+  },
 
   getById: (linkId) => apiRequest(`/shared-links/${linkId}`),
 
@@ -186,7 +184,6 @@ export const sharedLinks = {
     method: 'DELETE',
   }),
 
-  getAccessLogs: (linkId) => apiRequest(`/shared-links/${linkId}/access-logs`),
 };
 
 // Shared Access API (for recipients / public access)
@@ -325,17 +322,6 @@ export const billing = {
     body: JSON.stringify({ reason }),
   }),
 
-  getPricingRates: () => apiRequest('/billing/pricing-rates'),
-};
-
-// GitHub API (if needed)
-export const github = {
-  push: (repoData) => apiRequest('/github/push', {
-    method: 'POST',
-    body: JSON.stringify(repoData),
-  }),
-
-  getStatus: () => apiRequest('/github/status'),
 };
 
 export default {
@@ -345,5 +331,4 @@ export default {
   sharedAccess,
   resources,
   billing,
-  github,
 };

@@ -1,273 +1,175 @@
-# ShareT - Interactive Trello Card Sharing Platform
+# ShareT
 
-<p align="center">
-  <img src="https://img.shields.io/badge/Node.js-18+-green?style=flat-square&logo=node.js" alt="Node.js">
-  <img src="https://img.shields.io/badge/React-18-blue?style=flat-square&logo=react" alt="React">
-  <img src="https://img.shields.io/badge/PouchDB-Local%20Database-orange?style=flat-square" alt="PouchDB">
-  <img src="https://img.shields.io/badge/License-MIT-yellow?style=flat-square" alt="License">
-</p>
+ShareT creates secure external links for Trello cards so freelancers can view work, upload files, and post updates without needing a Trello account.
 
-**🎉 No Database Installation Required!** ShareT uses PouchDB for platform-agnostic data storage that works on Windows, Mac, and Linux without any database setup.
+Freelancer updates are relayed into Trello by a dedicated ShareT member. ShareT automatically assigns that member to the card when needed, mentions the Trello owner, and includes the freelancer's name in the comment. The owner can reply normally from Trello web, desktop, or mobile. Verified freelancers receive those replies by email and can also see them when the shared page refreshes.
 
-## ✨ Features
+## Main capabilities
 
-- **🔗 Share Trello Cards** - Generate shareable links for any Trello card
-- **🔐 Permission Control** - Set view/edit/download/upload permissions per link
-- **📧 Email Restrictions** - Limit access to specific email addresses
-- **⏰ Expiration Settings** - Auto-expire links after specified days
-- **💾 No Database Required** - Data stored locally using PouchDB
-- **🌐 Works Offline** - Access your data without internet
-- **☁️ Cloud Sync** - Optional sync to CouchDB for backup
-- **💰 Pay-as-you-go** - Transparent resource usage tracking
+- Share one Trello card or all cards in a list.
+- Search Trello content by workspace, board, list, or card from one structured picker.
+- Protect a link with a password and optional expiry date.
+- Require a freelancer's name and verified email before commenting.
+- Relay freelancer comments through a dedicated Trello bot account.
+- Automatically add the relay member to a card before its first relayed comment.
+- Trigger a normal Trello mention notification for the configured owner.
+- Route normal Trello replies back to the correct freelancer by email.
+- Preserve complete share-link history with pagination, copy, QR, status, and delete controls.
+- Store data locally in PouchDB, with optional CouchDB synchronization.
 
-## 🚀 Quick Start
+No Trello Power-Up panel is required for the conversation flow.
 
-### Windows (Recommended)
+## Requirements
 
-```cmd
-# 1. Clone the repository
-git clone https://github.com/Noodzakelijk-Online/004-ShareT.git
-cd 004-ShareT
+- Node.js 22 or newer
+- A Trello API key and secret
+- A stable public HTTPS URL for production OAuth callbacks and Trello webhooks
+- SMTP credentials for freelancer verification and reply email
+- A separate Trello member and token for reliable unread bell notifications
 
-# 2. Run the installer
-install.bat
+## Windows installation
 
-# 3. Start ShareT
-start-sharet.bat
+1. Clone the repository.
+2. Run `install.bat`.
+3. Configure `backend\.env` using the comments in `backend\.env.example`.
+4. Run `start-sharet.bat`.
+5. Open `http://localhost:5005`.
 
-# 4. Open in browser
-# http://localhost:5000
-```
+The installer installs both dependency sets, builds the frontend, copies the production build, and creates `backend\.env` when it is missing.
 
-### Manual Installation
+## Manual installation
 
 ```bash
-# Clone repository
-git clone https://github.com/Noodzakelijk-Online/004-ShareT.git
-cd 004-ShareT
-
-# Install frontend dependencies
-npm install
-
-# Build frontend
+npm ci
 npm run build
 
-# Install backend dependencies
 cd backend
-npm install
-
-# Start server
+npm ci
+cp .env.example .env
+# Edit .env before starting ShareT.
 npm start
 ```
 
-Then open http://localhost:5000
+The backend serves the frontend build from the repository's `dist` directory or from `backend/frontend/dist`. The default local URL is `http://localhost:5005`.
 
-## 📋 Configuration
+## Essential configuration
 
-Edit `backend/.env` to configure:
+Start from `backend/.env.example`. Production secrets must be unique and must not use the development defaults.
 
 ```env
-# Server
-PORT=5000
+PORT=5005
 NODE_ENV=production
 
-# Security (CHANGE THESE IN PRODUCTION!)
-JWT_SECRET=your-super-secret-key-change-this
-SESSION_SECRET=another-secret-key-change-this
+PUBLIC_URL=https://sharet.example.com
+FRONTEND_URL=https://sharet.example.com
+CORS_ORIGIN=https://sharet.example.com
 
-# Trello API (Get from https://trello.com/app-key)
+JWT_SECRET=replace-with-a-long-random-secret
+SESSION_SECRET=replace-with-another-long-random-secret
+ENCRYPTION_KEY=replace-with-a-long-random-encryption-key
+
 TRELLO_API_KEY=your-trello-api-key
 TRELLO_API_SECRET=your-trello-api-secret
-TRELLO_CALLBACK_URL=http://localhost:5000/api/trello/callback
+TRELLO_CALLBACK_URL=https://sharet.example.com/api/trello/callback
 
-# PouchDB (No changes needed for local use)
-DATA_DIR=./data
+TRELLO_BOT_TOKEN=token-owned-by-the-sharet-relay-member
+SHARET_TRELLO_NOTIFY_USERNAME=your-trello-username
+SHARET_ALLOW_OWNER_COMMENT_FALLBACK=false
 
-# Optional: Cloud Sync with CouchDB
-# COUCHDB_URL=https://your-couchdb-server.com
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_USER=your-smtp-user
+SMTP_PASS=your-smtp-password
+SMTP_FROM=ShareT <notifications@example.com>
 ```
 
-## 🗄️ Database: PouchDB
+The relay token must belong to a different Trello member than the owner. Add the relay member to each relevant board once. ShareT handles card-level assignment automatically. An action posted with the owner's own token can create the comment but cannot create an unread notification for that same owner.
 
-ShareT uses **PouchDB** instead of traditional databases like MongoDB:
+See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for webhook behavior, freelancer reply routing, SMTP aliases, and deployment options.
 
-| Feature | Benefit |
-|---------|---------|
-| **No Installation** | Just run `npm install` and start |
-| **Local Storage** | Data saved in `./data` folder |
-| **Works Everywhere** | Windows, Mac, Linux, Browser |
-| **Offline First** | Works without internet |
-| **Cloud Sync** | Optional CouchDB sync |
-| **Open Source** | Apache 2.0 license |
+## Deployment
 
-### Data Location
-```
-004-ShareT/
-└── backend/
-    └── data/           ← Your data is stored here
-        ├── users/
-        ├── shares/
-        ├── billing/
-        └── ...
-```
+ShareT is a Node/Express application, not a static-only frontend. It needs an always-running backend and a stable public HTTPS URL. Supported approaches include:
 
-## 🌐 Public Access (Cloudflare Tunnel)
+- Docker Compose using `docker-compose.yml`
+- A local or always-on Windows machine behind a named Cloudflare Tunnel
+- A static ngrok domain
+- A VPS or Node hosting platform behind HTTPS
 
-To make ShareT accessible from the internet:
+For Docker:
 
 ```bash
-# Quick temporary URL
-cloudflared tunnel --url http://localhost:5000
-
-# Permanent URL
-cloudflared tunnel create sharet
-cloudflared tunnel route dns sharet your-domain.com
-cloudflared tunnel run sharet
+docker compose up -d --build
+docker compose ps
 ```
 
-## 📁 Project Structure
+The health endpoint is `GET /health`.
 
-```
-004-ShareT/
-├── backend/                 # Node.js API server
-│   ├── server.js           # Main entry point (PouchDB)
-│   ├── db/pouchdb.js       # Database layer
-│   ├── controllers/        # API controllers
-│   ├── routes/             # API routes
-│   ├── middleware/         # Auth middleware
-│   └── data/               # Local database storage
-├── src/                    # React frontend source
-├── scripts/                # Setup scripts (PowerShell)
-├── install.bat             # Windows installer
-├── start-sharet.bat        # Windows launcher
-└── README.md               # This file
-```
+## API
 
-## 🔧 API Endpoints
+Authenticated endpoints expect the JWT returned by `POST /api/auth/login`:
+
+```http
+Authorization: Bearer your_access_token
+```
 
 ### Authentication
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/auth/register` | Register new user |
-| POST | `/api/auth/login` | Login |
-| POST | `/api/auth/logout` | Logout |
-| GET | `/api/auth/me` | Get current user |
+
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| POST | `/api/auth/register` | Create an account |
+| POST | `/api/auth/login` | Sign in and obtain tokens |
+| POST | `/api/auth/logout` | Sign out |
+| GET | `/api/auth/me` | Read the current profile |
+| PUT | `/api/auth/profile` | Update the current profile |
+| PUT | `/api/auth/password` | Change the password |
 
 ### Trello
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/trello/auth` | Start OAuth flow |
-| GET | `/api/trello/callback` | OAuth callback |
-| GET | `/api/trello/boards` | Get user's boards |
-| GET | `/api/trello/cards/:boardId` | Get cards in board |
 
-### Shares
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/shares` | Create share link |
-| GET | `/api/shares` | Get user's shares |
-| GET | `/api/shares/:id` | Get share details |
-| DELETE | `/api/shares/:id` | Delete share |
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| GET | `/api/trello/auth-url` | Start Trello authorization |
+| GET | `/api/trello/callback` | Handle Trello's OAuth callback |
+| POST | `/api/trello/connect` | Complete a token connection |
+| POST | `/api/trello/disconnect` | Remove the current connection |
+| GET | `/api/trello/status` | Read connection status |
+| GET | `/api/trello/boards` | List visible boards |
+| GET | `/api/trello/boards/:boardId/cards` | List cards on a board |
+| GET | `/api/trello/boards/:boardId/lists` | List lists on a board |
 
-### Billing
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/billing` | Get billing overview |
-| GET | `/api/billing/usage` | Get resource usage |
-| GET | `/api/billing/pricing` | Get pricing info |
+### Share links
 
-## 📊 Resource Pricing
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| POST | `/api/shared-links` | Create a share link |
+| GET | `/api/shared-links?page=1&limit=25` | List all links with pagination |
+| GET | `/api/shared-links/:shareId` | Read a link |
+| PUT | `/api/shared-links/:shareId` | Update permissions or status |
+| DELETE | `/api/shared-links/:shareId` | Delete a link |
+| GET | `/api/shared-links/:shareId/stats` | Read link statistics |
 
-ShareT uses a transparent pay-as-you-go model:
+Public recipient operations live under `/api/shared-access/:shareId`. Comment-enabled links require an email verification session before a freelancer can post.
 
-| Resource | Unit | Base Price | Multiplier | Cost |
-|----------|------|------------|------------|------|
-| CPU | cpu-seconds | $0.00001 | 2x | $0.00002/sec |
-| RAM | mb-seconds | $0.000001 | 2x | $0.000002/mb-sec |
-| Bandwidth | mb | $0.0001 | 2x | $0.0002/mb |
-| Storage | gb-hours | $0.00005 | 2x | $0.0001/gb-hr |
+## Credits and payment
 
-**Formula**: `cost = usage × base_price × 2`
+Non-admin accounts receive a limited credit balance. Opening a Wise payment page does not grant credits. Credits are added only after payment confirmation through the protected admin workflow, which prevents browser-side credit spoofing.
 
-## 🔒 Security Features
+## Verification
 
-- ✅ JWT authentication with refresh tokens
-- ✅ bcrypt password hashing
-- ✅ CORS protection
-- ✅ Helmet security headers
-- ✅ Rate limiting (configurable)
-- ✅ Email verification for shared links
-- ✅ Access logging
-
-## 🛠️ Development
-
-### Prerequisites
-- Node.js 18+
-- npm or pnpm
-
-### Development Mode
 ```bash
-# Frontend (hot reload)
-npm run dev
-
-# Backend (auto restart)
-cd backend
-npm run dev
-```
-
-### Building for Production
-```bash
-# Build frontend
 npm run build
+npx eslint src/App.jsx src/pages/App.jsx
 
-# Copy to backend
-cp -r dist backend/frontend/
-
-# Start production server
 cd backend
-NODE_ENV=production npm start
+npm test
+npm audit --omit=dev
 ```
 
-## 🐛 Troubleshooting
+## Data and backups
 
-### Common Issues
+PouchDB data is stored in `backend/data` by default or in the directory configured by `DATA_DIR`. Back up that directory while the app is stopped, or configure CouchDB synchronization for an external replica.
 
-**Port already in use**
-```bash
-# Find and kill process on port 5000
-netstat -ano | findstr :5000
-taskkill /PID <PID> /F
-```
+## License
 
-**Trello OAuth not working**
-1. Verify API keys in `backend/.env`
-2. Add `http://localhost:5000` to Trello's allowed origins
-3. Check callback URL matches your setup
-
-**Frontend not loading**
-1. Ensure frontend is built: `npm run build`
-2. Copy dist to backend: `cp -r dist backend/frontend/`
-3. Restart server
-
-## 📝 License
-
-MIT License - See [LICENSE](LICENSE) file for details.
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## 📧 Support
-
-- **Issues**: [GitHub Issues](https://github.com/Noodzakelijk-Online/004-ShareT/issues)
-- **Documentation**: See `/docs` folder
-
----
-
-<p align="center">
-  Made with ❤️ by <a href="https://github.com/Noodzakelijk-Online">Noodzakelijk Online</a>
-</p>
+MIT

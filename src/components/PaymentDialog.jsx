@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CreditCard } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
 
 const PAYMENT_LINKS = {
   '10': 'https://wise.com/pay/r/iQfsdutuWdOnBVo',
@@ -10,19 +11,32 @@ const PAYMENT_LINKS = {
   '100': 'https://wise.com/pay/r/8ZGYGFbHAxpDikw',
 };
 
-export const PaymentDialog = ({ onPaymentSuccess }) => {
+export const PaymentDialog = () => {
   const [bundle, setBundle] = useState('10');
+  const [open, setOpen] = useState(false);
+  const { toast } = useToast();
 
   const handlePayment = () => {
-    window.open(PAYMENT_LINKS[bundle], '_blank');
-    // Note: In a real-world scenario, you'd want to verify the payment was successful
-    // before adding credits. This might involve a webhook or checking a payment status API.
-    const creditsToAdd = parseInt(bundle);
-    onPaymentSuccess((prevCredits) => prevCredits + creditsToAdd);
+    const paymentWindow = window.open(PAYMENT_LINKS[bundle], '_blank', 'noopener,noreferrer');
+
+    if (!paymentWindow) {
+      toast({
+        title: 'Payment page blocked',
+        description: 'Allow pop-ups for ShareT and try again.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setOpen(false);
+    toast({
+      title: 'Wise payment opened',
+      description: 'Credits are added only after the payment has been confirmed.',
+    });
   };
 
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="outline">
           <CreditCard className="mr-2 h-4 w-4" /> Buy Credits
@@ -32,7 +46,7 @@ export const PaymentDialog = ({ onPaymentSuccess }) => {
         <DialogHeader>
           <DialogTitle>Purchase Credits</DialogTitle>
           <DialogDescription>
-            Select a credit bundle to purchase.
+            Select a bundle and complete the payment in Wise. Credits are added after payment confirmation.
           </DialogDescription>
         </DialogHeader>
         <Select value={bundle} onValueChange={setBundle}>
@@ -46,7 +60,7 @@ export const PaymentDialog = ({ onPaymentSuccess }) => {
           </SelectContent>
         </Select>
         <DialogFooter>
-          <Button onClick={handlePayment}>Purchase</Button>
+          <Button onClick={handlePayment}>Continue to Wise</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

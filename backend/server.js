@@ -77,7 +77,7 @@ let dbInitialized = false;
 
 const initDB = async () => {
   try {
-    initDatabases(dataDir);
+    await initDatabases(dataDir);
     loggers.db.info({ dataDir }, 'PouchDB databases initialized');
     
     // Optional: Setup cloud sync if CouchDB URL is provided
@@ -290,7 +290,7 @@ app.get('*', (req, res) => {
 });
 
 // Error handling middleware with fast-json-stringify
-app.use((err, req, res, next) => {
+app.use((err, req, res, _next) => {
   logger.error({ err, req: { method: req.method, url: req.url } }, 'Unhandled error');
   sendFastJSON(res, errorResponseSchema, {
     success: false,

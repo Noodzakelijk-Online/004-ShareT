@@ -17,19 +17,6 @@ async function fetchJSON(url, options = {}) {
   return response.json();
 }
 
-// Helper function to post JSON
-async function postJSON(url, data) {
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data)
-  });
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
-  }
-  return response.json();
-}
-
 // Get Trello auth URL
 exports.getAuthUrl = async (req, res) => {
   try {
@@ -85,7 +72,7 @@ exports.handleCallback = async (req, res) => {
     document.body.innerHTML = '<p>Error: ' + err.message + '. Close this window and try again.</p>';
   }
 })();
-<\/script>
+${'</scr' + 'ipt>'}
 </body></html>`);
 };
 

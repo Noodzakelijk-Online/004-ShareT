@@ -3,18 +3,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Share, Copy, Eye, EyeOff, QrCode, CheckCircle2, ChevronDown, ChevronRight, Info } from "lucide-react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { sharedLinks } from '../api';
+import TrelloTargetPicker from './TrelloTargetPicker';
 
-const NewShareForm = ({ shareType, setShareType, credits, deductCredit, onCreateLink, trelloData, onShowQRCode }) => {
+const NewShareForm = ({ shareType, setShareType, credits, onCreditsChanged, onCreateLink, trelloData, onShowQRCode }) => {
   const { toast: uiToast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
   const [selectedList, setSelectedList] = useState(null);
   const [generatedUrls, setGeneratedUrls] = useState(null);
   const [selectedWorkspace, setSelectedWorkspace] = useState(null);
-  const [boardSearch, setBoardSearch] = useState('');
   const [selectedBoard, setSelectedBoard] = useState(null);
   const [selectedCard, setSelectedCard] = useState(null);
 
@@ -30,12 +30,11 @@ const NewShareForm = ({ shareType, setShareType, credits, deductCredit, onCreate
     return [...seen];
   }, [trelloData]);
 
-  const filteredBoards = useMemo(() => {
+  const workspaceBoards = useMemo(() => {
     if (!trelloData?.boards) return [];
     return trelloData.boards
-      .filter(b => !selectedWorkspace || (b.organizationName || 'Personal') === selectedWorkspace)
-      .filter(b => !boardSearch.trim() || b.name.toLowerCase().includes(boardSearch.toLowerCase()));
-  }, [trelloData, selectedWorkspace, boardSearch]);
+      .filter(b => !selectedWorkspace || (b.organizationName || 'Personal') === selectedWorkspace);
+  }, [trelloData, selectedWorkspace]);
   const [cardUrl, setCardUrl] = useState('');
   const [expiryDate, setExpiryDate] = useState('');
   const [password, setPassword] = useState('');
@@ -120,8 +119,6 @@ const NewShareForm = ({ shareType, setShareType, credits, deductCredit, onCreate
               title: "Existing link reused",
               description: "An active share link for this card already exists, so we returned it instead of creating a duplicate. No credit was used.",
             });
-          } else if (deductCredit) {
-            await deductCredit();
           }
         }
       } else if (shareType === "list" && selectedList) {
@@ -153,6 +150,7 @@ const NewShareForm = ({ shareType, setShareType, credits, deductCredit, onCreate
       }
 
       // Update credits
+      await onCreditsChanged?.();
       onCreateLink();
 
       // Fix #9: Show green checkmark instead of toast popup
@@ -171,27 +169,37 @@ const NewShareForm = ({ shareType, setShareType, credits, deductCredit, onCreate
   };
 
   return (
-    <div className="space-y-4">
-      <div className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <Label htmlFor="shareType">Share Type</Label>
-            <Select value={shareType} onValueChange={setShareType}>
+            <Select
+              value={shareType}
+              onValueChange={(nextShareType) => {
+                setShareType(nextShareType);
+                setSelectedBoard(null);
+                setSelectedCard(null);
+                setSelectedList(null);
+              }}
+            >
               <SelectTrigger id="shareType" className="h-10">
                 <SelectValue placeholder="Select what to share" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="card">Single Card</SelectItem>
-                <SelectItem value="list">List of Cards</SelectItem>
+                <SelectGroup>
+                  <SelectItem value="card">Single Card</SelectItem>
+                  <SelectItem value="list">List of Cards</SelectItem>
+                </SelectGroup>
               </SelectContent>
             </Select>
           </div>
           <div>
             <Label htmlFor="workspaceSelect">Workspace</Label>
             <Select
+              value={selectedWorkspace || '__all__'}
               onValueChange={(ws) => {
                 setSelectedWorkspace(ws === '__all__' ? null : ws);
-                setBoardSearch('');
                 setSelectedBoard(null);
                 setSelectedCard(null);
                 setSelectedList(null);
@@ -201,108 +209,31 @@ const NewShareForm = ({ shareType, setShareType, credits, deductCredit, onCreate
                 <SelectValue placeholder={trelloData ? 'All workspaces' : 'Connect Trello first'} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="__all__">All workspaces</SelectItem>
-                {workspaces.map(ws => (
-                  <SelectItem key={ws} value={ws}>{ws}</SelectItem>
-                ))}
+                <SelectGroup>
+                  <SelectItem value="__all__">All workspaces</SelectItem>
+                  {workspaces.map(ws => (
+                    <SelectItem key={ws} value={ws}>{ws}</SelectItem>
+                  ))}
+                </SelectGroup>
               </SelectContent>
             </Select>
           </div>
         </div>
 
-        <div>
-          <Label htmlFor="boardSearch">Search Board</Label>
-          <Input
-            id="boardSearch"
-            placeholder="Type to search boards..."
-            value={boardSearch}
-            onChange={e => setBoardSearch(e.target.value)}
-            className="h-10"
-            disabled={!trelloData}
-          />
-        </div>
-
-        <div>
-          <Label htmlFor="boardSelect">Board</Label>
-          <Select
-            onValueChange={(boardId) => {
-              const board = filteredBoards.find(b => b.id === boardId) || null;
+        {trelloData ? (
+          <TrelloTargetPicker
+            boards={workspaceBoards}
+            shareType={shareType}
+            selectedBoard={selectedBoard}
+            selectedCard={selectedCard}
+            selectedList={selectedList}
+            onSelect={({ board, list, card }) => {
               setSelectedBoard(board);
-              setSelectedCard(null);
-              setSelectedList(null);
+              setSelectedList(list);
+              setSelectedCard(card);
             }}
-          >
-            <SelectTrigger id="boardSelect" className="h-10">
-              <SelectValue placeholder={trelloData ? (filteredBoards.length ? 'Select a board' : 'No matching boards') : 'Connect Trello first'} />
-            </SelectTrigger>
-            <SelectContent>
-              {filteredBoards.length > 0 ? (
-                filteredBoards.map(board => (
-                  <SelectItem key={board.id} value={board.id}>{board.name}</SelectItem>
-                ))
-              ) : (
-                <SelectItem disabled value="none">
-                  {trelloData ? (boardSearch ? 'No boards match your search' : 'Loading boards...') : 'Connect Trello first'}
-                </SelectItem>
-              )}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {shareType === 'card' && (
-          <div>
-            <Label htmlFor="cardSelect">Card</Label>
-            <Select
-              disabled={!selectedBoard}
-              onValueChange={(cardId) => {
-                const allCards = (selectedBoard?.lists || []).flatMap(l => l.cards || []);
-                setSelectedCard(allCards.find(c => c.id === cardId) || null);
-              }}
-            >
-              <SelectTrigger id="cardSelect" className="h-10">
-                <SelectValue placeholder={selectedBoard ? 'Select a card' : 'Select a board first'} />
-              </SelectTrigger>
-              <SelectContent>
-                {(selectedBoard?.lists || []).flatMap(l => l.cards || []).length > 0 ? (
-                  (selectedBoard.lists || []).flatMap(l => l.cards || []).map(card => (
-                    <SelectItem key={card.id} value={card.id}>{card.name}</SelectItem>
-                  ))
-                ) : (
-                  <SelectItem disabled value="none">
-                    {selectedBoard ? 'No cards in this board' : 'Select a board first'}
-                  </SelectItem>
-                )}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
-
-        {shareType === 'list' && (
-          <div>
-            <Label htmlFor="listSelect">List</Label>
-            <Select
-              disabled={!selectedBoard}
-              onValueChange={(listId) => {
-                setSelectedList((selectedBoard?.lists || []).find(l => l.id === listId) || null);
-              }}
-            >
-              <SelectTrigger id="listSelect" className="h-10">
-                <SelectValue placeholder={selectedBoard ? 'Select a list' : 'Select a board first'} />
-              </SelectTrigger>
-              <SelectContent>
-                {(selectedBoard?.lists || []).length > 0 ? (
-                  (selectedBoard.lists || []).map(list => (
-                    <SelectItem key={list.id} value={list.id}>{list.name}</SelectItem>
-                  ))
-                ) : (
-                  <SelectItem disabled value="none">
-                    {selectedBoard ? 'No lists in this board' : 'Select a board first'}
-                  </SelectItem>
-                )}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
+          />
+        ) : null}
 
         {!trelloData && shareType === 'card' && (
           <div>
@@ -317,10 +248,10 @@ const NewShareForm = ({ shareType, setShareType, credits, deductCredit, onCreate
           </div>
         )}
       </div>
-      <div className="flex space-x-4">
-        <div className="w-1/2">
+      <div className="flex flex-col gap-4 sm:flex-row">
+        <div className="w-full sm:w-1/2">
           <Label htmlFor="secret">Secret</Label>
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center gap-2">
             <Input 
               id="secret" 
               type={showPassword ? "text" : "password"} 
@@ -338,7 +269,7 @@ const NewShareForm = ({ shareType, setShareType, credits, deductCredit, onCreate
             </Button>
           </div>
         </div>
-        <div className="w-1/2">
+        <div className="w-full sm:w-1/2">
           <Label htmlFor="expiryDate">Expiry Date</Label>
           <Input 
             id="expiryDate" 

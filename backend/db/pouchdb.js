@@ -22,7 +22,7 @@ PouchDB.plugin(PouchDBFind);
 const databases = {};
 
 // Initialize databases
-function initDatabases(dataDir = './data') {
+async function initDatabases(dataDir = './data') {
   const dbNames = ['users', 'trello_connections', 'shared_links', 'access_logs',
                    'email_verifications', 'share_participants', 'comment_threads',
                    'trello_webhooks', 'trello_reply_events',
@@ -33,7 +33,7 @@ function initDatabases(dataDir = './data') {
   });
   
   // Create indexes for efficient queries
-  createIndexes();
+  await createIndexes();
   
   return databases;
 }
@@ -153,7 +153,7 @@ const User = {
     };
     
     await databases.users.put(user);
-    const { password, ...userWithoutPassword } = user;
+    const { password: _password, ...userWithoutPassword } = user;
     return userWithoutPassword;
   },
   
@@ -177,7 +177,7 @@ const User = {
   async findByIdLean(id) {
     const user = await this.findById(id);
     if (user) {
-      const { password, ...userWithoutPassword } = user;
+      const { password: _password, ...userWithoutPassword } = user;
       return userWithoutPassword;
     }
     return null;
@@ -219,7 +219,7 @@ const User = {
   async findAll() {
     const result = await databases.users.allDocs({ include_docs: true });
     return result.rows.map(r => r.doc).filter(d => d && d.type === 'user').map(u => {
-      const { password, ...safe } = u;
+      const { password: _password, ...safe } = u;
       return safe;
     });
   },
@@ -699,7 +699,7 @@ const CommentThread = {
   async markNotified(thread, reply) {
     // Hydrated service-only context may include Trello credentials; never copy
     // that transient data into the durable public-conversation record.
-    const { share, connection, ...storedThread } = thread;
+    const { share: _share, connection: _connection, ...storedThread } = thread;
     const updated = {
       ...storedThread,
       status: 'reply_notified',
