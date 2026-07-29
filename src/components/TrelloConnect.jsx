@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
+import { Loader2, AlertTriangle, BellRing } from "lucide-react";
 import axios from "axios";
 import { toast } from "sonner";
 
@@ -10,8 +10,22 @@ const TrelloConnect = ({ onConnect }) => {
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState(null);
   const [trelloConnections, setTrelloConnections] = useState([]);
+  // Per-comment notification warnings only reach the freelancer who commented,
+  // so the owner needs their own view of whether the bell actually works.
+  const [notifyHealth, setNotifyHealth] = useState(null);
   const onConnectRef = useRef(onConnect);
   onConnectRef.current = onConnect;
+
+  const loadNotificationHealth = async (token) => {
+    try {
+      const res = await axios.get(`${API_URL}/trello/notification-health`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setNotifyHealth(res.data?.health || null);
+    } catch {
+      setNotifyHealth(null);
+    }
+  };
 
   const fetchBoards = async (token) => {
     try {
@@ -35,6 +49,7 @@ const TrelloConnect = ({ onConnect }) => {
       if (connections.length > 0) {
         const { boards, organizations } = await fetchBoards(token);
         onConnectRef.current({ ...connections[0], boards, organizations });
+        loadNotificationHealth(token);
       }
     } catch (err) {
       console.error("Trello connections fetch error:", err?.response?.status, err?.message);
@@ -119,6 +134,33 @@ const TrelloConnect = ({ onConnect }) => {
       </Button>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
+
+      {notifyHealth && !notifyHealth.ok && (
+        <div className="flex gap-2 rounded-md border border-amber-500/50 bg-amber-500/10 p-3 text-sm">
+          <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-amber-600" />
+          <div className="space-y-1">
+            <p className="font-medium text-amber-700 dark:text-amber-500">
+              Your Trello notification bell will not ring for ShareT comments
+            </p>
+            {notifyHealth.problems?.map((problem, i) => (
+              <p key={i} className="text-muted-foreground">{problem}</p>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {notifyHealth?.ok && (
+        <div className="flex gap-2 rounded-md border border-emerald-500/50 bg-emerald-500/10 p-3 text-sm">
+          <BellRing className="h-4 w-4 shrink-0 mt-0.5 text-emerald-600" />
+          <p className="text-muted-foreground">
+            Comments from share links are posted by{' '}
+            <span className="font-medium text-foreground">
+              {notifyHealth.relayAccount?.fullName || notifyHealth.relayAccount?.username}
+            </span>
+            , so they trigger your Trello notification bell.
+          </p>
+        </div>
+      )}
 
       {trelloConnections.length > 0 && (
         <div className="space-y-2">

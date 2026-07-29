@@ -129,6 +129,41 @@ async function ensureRelayAssignedToCard({ cardId, key, token }) {
   };
 }
 
+// Subscribing the owner to the card is a second, independent delivery path for
+// the bell. The @mention above only reaches a configured username; watching the
+// card notifies the owner about every comment by another member, even when
+// SHARET_TRELLO_NOTIFY_USERNAME is unset or the mention text is stripped.
+// Never throws — a failure here must not block the comment itself.
+const subscribedCards = new Set();
+
+async function ensureOwnerSubscribedToCard({ cardId, key, token, force = false }) {
+  if (process.env.SHARET_AUTO_WATCH_CARDS === 'false') {
+    return { subscribed: false, reason: 'auto-watch-disabled' };
+  }
+  if (!cardId || !token || !key) {
+    return { subscribed: false, reason: 'trello-connection-missing' };
+  }
+  if (!force && subscribedCards.has(cardId)) {
+    return { subscribed: true, cached: true };
+  }
+
+  try {
+    await trelloApiRequest({
+      path: `/cards/${cardId}/subscribed`,
+      key,
+      token,
+      method: 'PUT',
+      params: { value: 'true' },
+      operation: 'owner card subscription'
+    });
+    subscribedCards.add(cardId);
+    return { subscribed: true, cached: false };
+  } catch (error) {
+    console.error(`Unable to subscribe the owner to card ${cardId}:`, error.message);
+    return { subscribed: false, reason: 'subscription-failed', error: error.message };
+  }
+}
+
 function buildTokenCandidates(share, connection) {
   const candidates = [];
 
@@ -172,7 +207,7 @@ function getPostingMember(comment) {
   return comment?.memberCreator || comment?.data?.memberCreator || null;
 }
 
-function assessTrelloNotification({ comment, candidate, connection, notifyUsername }) {
+function assessTrelloNotification({ comment, candidate, connection, notifyUsername, subscription }) {
   const postingMember = getPostingMember(comment);
   const postingUsername = normalizeTrelloUsername(postingMember?.username);
   const targetUsername = normalizeTrelloUsername(notifyUsername);
@@ -189,18 +224,27 @@ function assessTrelloNotification({ comment, candidate, connection, notifyUserna
   const ownerPostingForOwner = candidate.label === 'owner-fallback' &&
     (!targetUsername || targetUsername === ownerUsername);
 
-  if (!targetUsername) {
-    return {
-      bellExpected: false,
-      warning: 'No Trello notification username is configured.'
-    };
-  }
-
+  // A comment authored by the owner can never notify the owner, whatever the
+  // mention text says or whether the card is watched.
   if (sameMemberId || sameUsername || ownerPostingForOwner) {
     return {
       bellExpected: false,
       warning: 'Trello does not notify a member about a comment posted by that same member. Configure a distinct relay token.'
     };
+  }
+
+  // Watching the card delivers the bell on its own, so a missing mention target
+  // is no longer fatal — it just removes the second delivery path.
+  if (!targetUsername) {
+    return subscription?.subscribed
+      ? {
+          bellExpected: true,
+          warning: 'No Trello notification username is configured. The bell relies on the owner watching this card.'
+        }
+      : {
+          bellExpected: false,
+          warning: 'No Trello notification username is configured and the owner is not watching this card.'
+        };
   }
 
   return { bellExpected: true, warning: null };
@@ -217,6 +261,7 @@ function buildNotificationStatus() {
     targetMode: hasExplicitTarget ? 'explicit-username' : 'connected-owner',
     ownerFallbackEnabled: process.env.SHARET_ALLOW_OWNER_COMMENT_FALLBACK !== 'false',
     autoAssignRelayToCards: true,
+    autoWatchCards: process.env.SHARET_AUTO_WATCH_CARDS !== 'false',
     nativeAuthorMode: 'per-share-relay-token'
   };
 }
@@ -282,6 +327,14 @@ exports.addComment = async (req, res) => {
         message: 'No Trello posting token is configured'
       });
     }
+
+    // Must happen BEFORE the comment is posted — Trello only notifies watchers
+    // about activity that occurs while they are subscribed.
+    const subscription = await ensureOwnerSubscribedToCard({
+      cardId: share.cardId,
+      key,
+      token: connection.trelloToken
+    });
 
     let comment;
     let postedWith = null;
@@ -362,7 +415,8 @@ exports.addComment = async (req, res) => {
       comment,
       candidate: postedWith,
       connection,
-      notifyUsername
+      notifyUsername,
+      subscription
     });
 
     await sendShareTUpdateNotification({
@@ -392,6 +446,7 @@ exports.addComment = async (req, res) => {
           fullName: postingMember.fullName
         } : null,
         relayAssignment: postedWith.relayAssignment,
+        ownerSubscription: subscription,
         bellExpected: trelloNotification.bellExpected,
         warning: trelloNotification.warning
       },
@@ -413,6 +468,7 @@ exports.__test = {
   assessTrelloNotification,
   buildNotificationStatus,
   buildTokenCandidates,
+  ensureOwnerSubscribedToCard,
   ensureRelayAssignedToCard,
   formatComment,
   normalizeAuthorName,

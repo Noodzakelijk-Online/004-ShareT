@@ -17,6 +17,7 @@ router.post('/disconnect', protect, trelloController.disconnect);
 // Status & connections
 router.get('/status', protect, trelloController.getStatus);
 router.get('/connections', protect, trelloController.getConnections);
+router.get('/notification-health', protect, trelloController.getNotificationHealth);
 
 // Boards
 router.get('/boards', protect, trelloController.getBoards);

@@ -374,6 +374,22 @@ const startServer = async () => {
 ║  ✓ rate-limiter-flexible (memory efficient)                ║
 ╚════════════════════════════════════════════════════════════╝
       `);
+
+      // The one misconfiguration that silently disables the Trello bell for
+      // every freelancer comment. Without a relay token the only remaining
+      // candidate is the owner's own token, and Trello suppresses
+      // self-notifications.
+      if (!(process.env.TRELLO_BOT_TOKEN || '').trim()) {
+        console.warn(
+          '\n⚠️  TRELLO_BOT_TOKEN is not set.\n' +
+          '    Freelancer comments will be posted with the owner\'s own Trello token,\n' +
+          '    and Trello never notifies you about your own actions — so the owner\'s\n' +
+          '    notification bell will NOT ring, whatever mention text is used.\n' +
+          '    Fix: create a separate Trello account, add it to your boards, set\n' +
+          '    TRELLO_BOT_TOKEN, and set SHARET_ALLOW_OWNER_COMMENT_FALLBACK=false.\n' +
+          '    Check with GET /api/trello/notification-health.\n'
+        );
+      }
     });
   } catch (error) {
     logger.fatal({ err: error }, 'Failed to start server');

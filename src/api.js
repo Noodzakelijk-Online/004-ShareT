@@ -140,6 +140,9 @@ export const trello = {
   getCardLinks: (cardId) => apiRequest(`/trello/cards/${cardId}/links`),
   
   getCardPluginData: (cardId) => apiRequest(`/trello/cards/${cardId}/plugin-data`),
+
+  // Can a freelancer comment actually raise the owner's Trello bell?
+  getNotificationHealth: () => apiRequest('/trello/notification-health'),
 };
 
 // Admin API

@@ -5,6 +5,7 @@
  */
 
 const { TrelloConnection } = require('../db/pouchdb');
+const { getNotificationStatus } = require('./sharedCommentController');
 
 const TRELLO_API_BASE = 'https://api.trello.com/1';
 
@@ -680,6 +681,91 @@ exports.addComment = async (req, res) => {
       success: false,
       message: 'Error adding comment'
     });
+  }
+};
+
+// Owner-facing diagnostic: can a freelancer comment actually raise this owner's
+// Trello bell? The relay machinery reports per-comment warnings to the person
+// who commented, which means the owner never learns their own bell is broken.
+// GET /api/trello/notification-health
+exports.getNotificationHealth = async (req, res) => {
+  try {
+    const userId = req.user._id || req.user.id;
+    const connection = await TrelloConnection.findByUserId(userId);
+
+    if (!connection) {
+      return res.status(401).json({ success: false, message: 'Trello not connected' });
+    }
+
+    const key = process.env.TRELLO_API_KEY;
+    const relayToken = (process.env.TRELLO_BOT_TOKEN || '').trim();
+    const notifyUsername = (process.env.SHARET_TRELLO_NOTIFY_USERNAME || process.env.TRELLO_NOTIFY_USERNAME || '')
+      .trim().replace(/^@+/, '');
+
+    const health = {
+      ok: false,
+      ...getNotificationStatus(),
+      owner: {
+        username: connection.trelloUsername,
+        fullName: connection.trelloFullName
+      },
+      relayAccount: null,
+      relayBoards: [],
+      problems: []
+    };
+
+    if (!relayToken) {
+      health.problems.push(
+        'TRELLO_BOT_TOKEN is empty, so comments are posted with your own Trello token. ' +
+        'Trello never notifies you about your own actions, so your bell cannot ring. ' +
+        'Create a separate Trello account, add it to your boards, and set TRELLO_BOT_TOKEN.'
+      );
+      return res.json({ success: true, data: health, health });
+    }
+
+    try {
+      const relay = await fetchJSON(
+        `${TRELLO_API_BASE}/members/me?key=${key}&token=${relayToken}&fields=id,username,fullName&boards=all&board_fields=id,name`
+      );
+      health.relayAccount = { id: relay.id, username: relay.username, fullName: relay.fullName };
+      health.relayBoards = (relay.boards || []).map(board => ({ id: board.id, name: board.name }));
+
+      if (relay.id === connection.trelloMemberId) {
+        health.problems.push(
+          'TRELLO_BOT_TOKEN belongs to the same Trello account as you. It must be a separate account, ' +
+          'otherwise comments still count as your own and no bell is raised.'
+        );
+      }
+      if (!health.relayBoards.length) {
+        health.problems.push(
+          'The relay account is not a member of any board. Add it to every board you share cards from, ' +
+          'or Trello will reject its comments.'
+        );
+      }
+    } catch (error) {
+      health.problems.push(`TRELLO_BOT_TOKEN is set but Trello rejected it: ${error.message}`);
+      return res.json({ success: true, data: health, health });
+    }
+
+    if (health.ownerFallbackEnabled) {
+      health.problems.push(
+        'SHARET_ALLOW_OWNER_COMMENT_FALLBACK is not set to false. If the relay ever fails, ShareT ' +
+        'silently posts as you again and the bell goes quiet with no visible error.'
+      );
+    }
+
+    if (!notifyUsername && !health.autoWatchCards) {
+      health.problems.push(
+        'No notification username is configured and card auto-watching is disabled, so nothing ' +
+        'directs the comment at you. Set SHARET_TRELLO_NOTIFY_USERNAME or enable SHARET_AUTO_WATCH_CARDS.'
+      );
+    }
+
+    health.ok = health.problems.length === 0;
+    res.json({ success: true, data: health, health });
+  } catch (error) {
+    console.error('Notification health error:', error);
+    res.status(500).json({ success: false, message: 'Error checking notification health' });
   }
 };
 
