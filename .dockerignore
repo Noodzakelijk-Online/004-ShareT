@@ -8,4 +8,9 @@ backend/data/
 !.env.example
 !.env.docker.example
 backend/.env*
+backups/
+support/
+*.log
+*.log.*
+ngrok-traffic-policy.yml
 .DS_Store
