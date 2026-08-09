@@ -112,6 +112,14 @@ echo  [OK] Saved ngrok auth token to .env.docker.
 
 :token_done
 
+:: Pass only Compose's two tunnel settings through the current process. The
+:: application consumes .env.docker in raw mode so credentials stay literal.
+set "NGROK_AUTHTOKEN="
+set "NGROK_DOMAIN="
+if exist .env.docker (
+    for /f "tokens=1,* delims==" %%A in ('findstr /B "NGROK_AUTHTOKEN= NGROK_DOMAIN=" .env.docker') do set "%%A=%%B"
+)
+
 :: ════════════════════════════════════════════════
 :: STEP 3  BUILD + START THE WHOLE STACK (app + ngrok + autoheal)
 :: ════════════════════════════════════════════════
@@ -124,7 +132,7 @@ echo.
 :: (free ngrok allows only one agent session at a time).
 taskkill /F /IM ngrok.exe /T >nul 2>&1
 
-docker compose --env-file .env.docker up -d --build
+docker compose up -d --build
 if !errorlevel! neq 0 (
     echo.
     echo  [!] Docker build failed. See errors above.
@@ -199,7 +207,7 @@ if defined PUBLIC_URL (
 echo.
 echo  ============================================================
 echo    Everything runs under Docker with auto-restart.
-echo    To STOP:     docker compose --env-file .env.docker down
+echo    To STOP:     docker compose down
 echo    To RESTART:  run this file again
 echo    Watchdog log: watchdog.log
 echo  ============================================================

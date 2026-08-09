@@ -4,7 +4,10 @@ services:
     container_name: sharet-app
     restart: always
     env_file:
-      - .env.docker
+      - path: .env.docker
+        # Credentials can contain dollar signs. Raw mode passes them to the
+        # app literally instead of treating them as Compose substitutions.
+        format: raw
     ports:
       - "5005:5005"
     volumes:
