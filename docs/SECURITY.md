@@ -23,7 +23,7 @@ The browser, public share recipient, HAI client, Trello, SMTP service, optional 
 
 ## Secret rotation
 
-The repository previously tracked environment files. Removing them from the current tree does not erase Git history. Before production use, rotate every credential that ever appeared there: JWT secrets, encryption key, Trello owner/relay tokens, SMTP credentials, tunnel token, CouchDB credentials, and any third-party key. Re-encrypting stored provider tokens after rotating `ENCRYPTION_KEY` needs a planned migration or reconnection; do not simply replace the key against existing encrypted data.
+The repository previously tracked environment files. Removing them from the current tree does not erase Git history. The measured redacted baseline is 30 Gitleaks candidates across eight commits, including 20 findings in the historical `.env.docker`; generated dependencies and documentation placeholders account for the other ten. CI scans the changed commit range with a commit-pinned Gitleaks action so new leaks fail the build without pretending the old credentials were revoked. Before production use, rotate every credential that ever appeared there: JWT secrets, encryption key, Trello owner/relay tokens, SMTP credentials, tunnel token, CouchDB credentials, and any third-party key. Re-encrypting stored provider tokens after rotating `ENCRYPTION_KEY` needs a planned migration or reconnection; do not simply replace the key against existing encrypted data.
 
 ## Retention and deletion
 

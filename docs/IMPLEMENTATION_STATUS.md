@@ -34,7 +34,7 @@ Updated: 2026-08-09. Status means **Implemented**, **Partial**, **Blocked**, or 
 | 027 Notifications | Implemented | Relay bell path, SMTP replies, health warnings. |
 | 028 Privacy/deletion | Implemented | Export, deletion, retention, legal pages. |
 | 029 Web security | Implemented | Helmet/CSP/CORS/rate limits/body bounds. |
-| 030 Secret rotation | Partial | Current storage hardened; historical credentials still need owner rotation. |
+| 030 Secret rotation | Partial | Current storage hardened; full redacted history baseline measured, current PR range clean, and commit-pinned Gitleaks CI added. Historical credentials still need owner rotation. |
 | 031 One-command local setup | Implemented | `install.bat`, `start-sharet.bat`, doctor. |
 | 032 Docker/deployment | Implemented | Live Windows Compose stack and static ngrok origin return ready; health probe and credential isolation verified. |
 | 033 Migrations/rollback | Partial | Automatic legacy credential migration and backups exist; no versioned general migration runner. |

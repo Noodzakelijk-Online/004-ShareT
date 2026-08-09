@@ -45,7 +45,7 @@ The repository is a production-oriented owner-acceptance candidate. The local ap
 - Browser sessions use HttpOnly cookies; API credentials, password hashes, encrypted relay data, and connector hashes are stripped from presentations and exports.
 - Trello relay assignment, owner watching, notification-health reporting, signed webhook validation, conservative reply routing, retry, and idempotency have regression coverage.
 - Payment-page navigation cannot grant credits. Client-declared billing/resource-success endpoints and fake dashboard behavior were removed.
-- Tracked secret-bearing environment files were removed. Any credential that existed in Git history must still be rotated by its owner; removing the current file does not revoke it.
+- Tracked secret-bearing environment files were removed. A full redacted Gitleaks scan measured 30 historical candidates across eight commits: 20 in `.env.docker`, five in generated dependency artifacts, and five documentation placeholders. The current PR range has zero findings, and CI now scans changed history on every push or pull request. Any real credential that existed in Git history must still be rotated by its owner; removing the current file or passing the new-change gate does not revoke it.
 
 ## Required live acceptance
 
