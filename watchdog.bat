@@ -4,8 +4,8 @@
 ::  Runs on a schedule (see install-watchdog.bat). It NEVER shows
 ::  error dialogs and NEVER pauses. Every tick it makes sure:
 ::    1. Docker Desktop is running (starts it if not)
-::    2. The ShareT stack is up   (docker-compose up -d)
-::    3. The app answers /health   (logs the result)
+::    2. The ShareT stack is up   (docker compose up -d)
+::    3. The app answers /ready   (logs the result)
 ::  Everything is appended to watchdog.log next to this file.
 :: ============================================================
 setlocal enabledelayedexpansion
@@ -42,10 +42,10 @@ goto end
 
 :: ── 2) Make sure the stack is up (idempotent) ───────────────
 ::    Starts only what is stopped; no rebuild, no-op if all healthy.
-docker-compose up -d >>"%LOG%" 2>&1
+docker compose --env-file .env.docker up -d >>"%LOG%" 2>&1
 
 :: ── 3) Is the app actually answering? ───────────────────────
-curl -sf http://localhost:%PORT%/health >nul 2>&1
+curl -sf http://127.0.0.1:%PORT%/ready >nul 2>&1
 if !errorlevel! equ 0 (
     call :log "OK - app healthy"
 ) else (

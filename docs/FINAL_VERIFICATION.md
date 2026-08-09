@@ -37,6 +37,7 @@ The repository is a production-oriented owner-acceptance candidate. The local ap
 - The ngrok container receives only `NGROK_AUTHTOKEN`; application JWT, Trello, SMTP, Stripe, and database credentials are no longer copied into that container. The current ngrok `--url=https://...` syntax was verified against the running image.
 - An offline archive of the live named data volume was created before deployment (1,518,080 bytes, 267 entries, SHA-256 `F536A7B6480D7248F7FFAE72F46E351C96174B464DF7561F15CBC0B0F2B8B02F`). An isolated backup/restore round trip preserved hashes and prior destination state, while a tampered backup was rejected before destination creation.
 - The support bundle reached the live readiness endpoint, reported zero runtime errors, contained no environment block, and matched none of the configured sensitive credential values.
+- The scheduled Windows watchdog was found recreating the container from an older Compose file. Its installed and repository scripts now use the same explicit env file and IPv4 readiness probe as deployment. A manual watchdog tick did not recreate the container; Docker, local readiness, public readiness, and PouchDB all remained healthy.
 
 ## Security and truthfulness checks
 

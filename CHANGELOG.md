@@ -18,6 +18,7 @@
 - Static HTML revalidates while content-hashed assets remain immutable.
 - Production CORS and configuration validation fail closed.
 - Docker health probes use the IPv4 readiness endpoint, and ngrok receives only its own credential using current static-URL syntax.
+- Windows watchdog and redeploy checks use the same explicit Compose environment and readiness contract as the live stack.
 
 ### Removed
 

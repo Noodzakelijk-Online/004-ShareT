@@ -21,6 +21,8 @@ Do not rebuild files while the server is serving them. Run `npm run build:serve`
 
 `redeploy.bat` automates the same Compose invocation. A changing temporary ngrok hostname is unsuitable because Trello callbacks, webhooks, existing links, and HAI's OpenAPI server URL depend on a stable origin.
 
+The scheduled `watchdog.bat` must run from the same installed checkout and uses `docker compose --env-file .env.docker up -d`. It checks IPv4 `/ready`; do not point it at another checkout or an older Compose file, because Compose will reconcile the live container back to that stale configuration.
+
 ## HAI connection
 
 1. Sign in to ShareT and open **HAI connector** in the profile.

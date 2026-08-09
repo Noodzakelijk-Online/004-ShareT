@@ -140,9 +140,9 @@ set _h=0
 :waithealth
 timeout /t 3 /nobreak >nul
 set /a _h+=3
-curl -sf http://localhost:%PORT%/health >nul 2>&1
+curl -sf http://127.0.0.1:%PORT%/ready >nul 2>&1
 if !errorlevel! equ 0 goto health_ok
-if !_h! lss 60 goto waithealth
+if !_h! lss 120 goto waithealth
 echo  [WARN] Health check timed out - ShareT may still be starting.
 
 :health_ok
@@ -199,7 +199,7 @@ if defined PUBLIC_URL (
 echo.
 echo  ============================================================
 echo    Everything runs under Docker with auto-restart.
-echo    To STOP:     docker-compose down
+echo    To STOP:     docker compose --env-file .env.docker down
 echo    To RESTART:  run this file again
 echo    Watchdog log: watchdog.log
 echo  ============================================================

@@ -25,6 +25,7 @@ Updated: 2026-08-09
 | The ngrok service inherited every ShareT application secret through `env_file`. | It now receives only `NGROK_AUTHTOKEN` through an explicit environment mapping. |
 | The bundled ngrok command used legacy `--domain` syntax. | Compose, Windows launcher, and deployment docs now use the current `--url=https://...` form. |
 | Docker-based support bundles ignored `.env.docker` and reported false configuration errors. | The diagnostic loader now includes `.env.docker` while still excluding values and credentials from the report. |
+| The installed Windows watchdog used a stale checkout and recreated the live container with its obsolete `/health`/IPv6 probe every two minutes. | Watchdog and redeploy now use `docker compose --env-file .env.docker`, probe IPv4 `/ready`, and allow the full cold-start window. The installed checkout was aligned and a manual watchdog tick left the healthy container unchanged. |
 | Account creation displayed `Invalid Date` for legacy users. | Shared user presentation normalizes missing dates to “Not available.” |
 | Public errors could expose internal provider failure detail. | Public relay/webhook failure results use stable reason codes. |
 | HAI integration required passwords or expiring login JWTs. | Added scoped, hashed, revocable connector credentials and OpenAPI 3.1. |
