@@ -26,15 +26,9 @@ const {
   authorizeShareRequest,
   signPasswordGrant
 } = require('../utils/shareAccess');
+const { safeFileName, trustedTrelloAttachmentUrl } = require('../utils/attachmentSecurity');
 
 const TRELLO_API_BASE = 'https://api.trello.com/1';
-
-function safeFileName(value) {
-  return String(value || 'attachment')
-    .replace(/[\\/\r\n\0"<>:|?*]+/g, '_')
-    .trim()
-    .slice(0, 180) || 'attachment';
-}
 
 // Configure multer for memory storage (files stay in RAM, sent directly to Trello)
 const upload = multer({
@@ -377,7 +371,10 @@ exports.downloadAttachment = async (req, res) => {
     });
 
     // Fetch the actual file from Trello using the owner's token as auth header
-    const fileResponse = await fetch(attachment.url, {
+    const fileResponse = await fetch(trustedTrelloAttachmentUrl(attachment.url), {
+      // Never forward the owner credential through a redirect. Trello file
+      // downloads are expected to resolve on the trusted Trello origin.
+      redirect: 'error',
       headers: {
         'Authorization': `OAuth oauth_consumer_key="${process.env.TRELLO_API_KEY}", oauth_token="${connection.trelloToken}"`
       }

@@ -50,8 +50,8 @@ Updated: 2026-08-09. Status means **Implemented**, **Partial**, **Blocked**, or 
 | 043 End-to-end tests | Partial | Local browser flow covered; live-provider E2E blocked. |
 | 044 Acceptance matrix | Implemented | `ACCEPTANCE_TESTS.md`. |
 | 045 Adversarial tests | Partial | Key access and relay failures covered; broader fuzzing pending. |
-| 046 Cross-user isolation | Partial | Enforced in code; dedicated HTTP isolation suite pending. |
-| 047 File path tests | Partial | Sanitization implemented; adversarial file integration suite pending. |
+| 046 Cross-user isolation | Implemented | Dedicated authenticated HTTP suite proves foreign list/get/update/toggle/stats/delete requests reveal nothing and cannot mutate the owner record. |
+| 047 File path tests | Implemented | Adversarial traversal/header filenames are normalized, uploads remain memory-only, and owner credentials are denied to non-Trello or redirecting attachment origins. |
 | 048 Provider failure simulation | Implemented | Trello relay/subscription failures tested without false success. |
 | 049 Accessibility | Partial | Labels/semantic controls present; formal screen-reader audit pending. |
 | 050 Browser/responsive | Partial | Chromium desktop checked; full device/browser matrix pending. |
