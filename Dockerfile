@@ -4,7 +4,11 @@ FROM node:22-alpine AS frontend-build
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci
-COPY . .
+# Keep frontend and backend cache boundaries independent. Server-only changes
+# must not force Vite to rebuild all frontend modules.
+COPY index.html vite.config.js postcss.config.js tailwind.config.js ./
+COPY public/ ./public/
+COPY src/ ./src/
 RUN npm run build
 
 # Stage 2: Production server

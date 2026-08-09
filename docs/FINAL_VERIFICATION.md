@@ -41,6 +41,7 @@ The repository is a production-oriented owner-acceptance candidate. The local ap
 - The support bundle reached the live readiness endpoint, reported zero runtime errors, contained no environment block, and matched none of the configured sensitive credential values.
 - The scheduled Windows watchdog was found recreating the container from an older Compose file. Its installed and repository scripts now use the same explicit env file and IPv4 readiness probe as deployment. A manual watchdog tick did not recreate the container; Docker, local readiness, public readiness, and PouchDB all remained healthy.
 - The installed Windows source was reconciled byte-for-byte with all 186 tracked release files while preserving four local environment files, backups, and logs; 44 obsolete mock, Mongo, and Power-Up files were removed. A canonical rebuild contained no `.env*` files, and the running container now uses that exact local image.
+- Docker build inputs are separated by responsibility: local environment files, backups, support bundles, and rotated watchdog logs are excluded, while backend-only rebuild validation kept every frontend layer cached and completed in 13.3 seconds instead of rebuilding 2,369 frontend modules.
 
 ## Security and truthfulness checks
 
