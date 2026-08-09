@@ -14,7 +14,7 @@ The repository is a production-oriented owner-acceptance candidate. The local ap
 | Frontend clean install | Passed with `npm ci` in the working checkout; a separate committed-clone retry timed out on this Windows/antivirus host and remains an independent-machine gate. |
 | Backend clean install | Passed with `npm ci`; dependency tree is consistent. |
 | Frontend lint | Passed with zero warnings. |
-| Backend tests | 32 passed, 0 failed. |
+| Backend tests | 34 passed, 0 failed, including proactive credential migration and unsafe-downgrade rejection. |
 | Production build/copy | Passed; 2,369 modules transformed and the served bundle refreshed. |
 | Frontend audit | 0 vulnerabilities after lockfile-safe advisory updates. |
 | Backend audit | 0 high/critical; 7 moderate reports are the upstream PouchDB UUID advisory. npm's only automatic proposal is an unsafe downgrade from PouchDB 8 to 6, so it was not applied. |
@@ -32,12 +32,15 @@ The repository is a production-oriented owner-acceptance candidate. The local ap
 - Chromium rendered sign-in, privacy, terms, the canonical `/shared/:id` link, and the compatibility `/share/:id` link. A valid link secret advanced to the freelancer name/email gate with no application console errors.
 - The QA environment intentionally lacked SMTP and Trello credentials; the UI and readiness endpoint reported those capabilities unavailable instead of simulating success.
 - The database index marker skipped index rebuilding on restart. On this Windows/antivirus environment, cold process and database startup still reached readiness at about 85 seconds, so Docker now grants a 90-second first-start health period.
+- Versioned data schema 1 was deployed against a verified offline volume backup. It proactively found and encrypted one remaining plaintext owner Trello token, recorded the completed migration only after the write succeeded, and exposed matching current/supported schema versions through `/ready`; the live migration produced zero errors or warnings.
 - A no-hardlink clone of commit `b6bc86c` was created successfully. Its backend clean install, 32 tests, and high-severity audit gate passed. Its frontend `npm ci` did not complete within either a four-minute or ten-minute window on this host, even though the same lockfile's clean install passed in the working checkout; this is recorded as unresolved environment acceptance rather than reported as success.
 - The production Compose stack was rebuilt and restarted on Windows 11. `sharet-app` reached Docker `healthy` with zero restarts, and both local and static-ngrok `/ready` returned 200 with PouchDB connected and zero runtime errors.
 - The ngrok container receives only `NGROK_AUTHTOKEN`; application JWT, Trello, SMTP, Stripe, and database credentials are no longer copied into that container. The current ngrok `--url=https://...` syntax was verified against the running image.
 - An offline archive of the live named data volume was created before deployment (1,518,080 bytes, 267 entries, SHA-256 `F536A7B6480D7248F7FFAE72F46E351C96174B464DF7561F15CBC0B0F2B8B02F`). An isolated backup/restore round trip preserved hashes and prior destination state, while a tampered backup was rejected before destination creation.
+- Immediately before the schema migration, the paused live volume was archived consistently to `sharet-data-pre-schema-v1-20260809T164524Z.tar.gz` (781,972 bytes, 293 entries, SHA-256 `C5648610EC28985363DBCD5628F6F91FE41E6450C96957F94DAE29A80C16AAA9`).
 - The support bundle reached the live readiness endpoint, reported zero runtime errors, contained no environment block, and matched none of the configured sensitive credential values.
 - The scheduled Windows watchdog was found recreating the container from an older Compose file. Its installed and repository scripts now use the same explicit env file and IPv4 readiness probe as deployment. A manual watchdog tick did not recreate the container; Docker, local readiness, public readiness, and PouchDB all remained healthy.
+- The installed Windows source was reconciled byte-for-byte with all 186 tracked release files while preserving four local environment files, backups, and logs; 44 obsolete mock, Mongo, and Power-Up files were removed. A canonical rebuild contained no `.env*` files, and the running container now uses that exact local image.
 
 ## Security and truthfulness checks
 
