@@ -18,4 +18,4 @@ echo  Domain : https://%NGROK_DOMAIN%
 echo  Port   : 5005
 echo.
 
-ngrok http --domain=%NGROK_DOMAIN% 5005
+ngrok http 5005 --url=https://%NGROK_DOMAIN%

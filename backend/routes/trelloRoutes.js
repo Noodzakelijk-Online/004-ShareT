@@ -11,6 +11,7 @@ const { protect } = require('../middleware/auth');
 // OAuth routes
 router.get('/auth-url', protect, trelloController.getAuthUrl);
 router.get('/callback', trelloController.handleCallback);
+router.get('/callback.js', trelloController.handleCallbackScript);
 router.post('/connect', protect, trelloController.connect);
 router.post('/disconnect', protect, trelloController.disconnect);
 
@@ -33,7 +34,6 @@ router.get('/cards/:cardId/actions', protect, trelloController.getCardActions);
 router.get('/cards/:cardId/checklists', protect, trelloController.getCardChecklists);
 router.get('/cards/:cardId/members', protect, trelloController.getCardMembers);
 router.get('/cards/:cardId/links', protect, trelloController.getCardLinks);
-router.get('/cards/:cardId/plugin-data', protect, trelloController.getCardPluginData);
 
 // Card actions (for shared access)
 router.post('/cards/:cardId/comments', protect, trelloController.addComment);

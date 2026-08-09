@@ -7,8 +7,56 @@
 const { SharedLink, TrelloConnection, User } = require('../db/pouchdb');
 const { ensureWebhookForShare } = require('../services/trelloWebhookService');
 const { normalizePagination } = require('../utils/pagination');
+const { presentSharedLink } = require('../utils/sharePresentation');
+const validator = require('validator');
+const bcrypt = require('bcryptjs');
 
 const TRELLO_API_BASE = 'https://api.trello.com/1';
+const PERMISSION_KEYS = ['canView', 'canComment', 'canUpload', 'canDownload', 'canSetDueDate'];
+
+function normalizeShareInput(input, { partial = false } = {}) {
+  const normalized = {};
+  if (!partial || input.cardId !== undefined) {
+    normalized.cardId = String(input.cardId || '').trim();
+    if (!normalized.cardId || normalized.cardId.length > 128) throw new Error('A valid Trello card is required');
+  }
+  for (const field of ['cardName', 'boardId', 'boardName']) {
+    if (input[field] !== undefined) normalized[field] = String(input[field] || '').trim().slice(0, 500);
+  }
+  if (input.permissions !== undefined) {
+    if (!input.permissions || typeof input.permissions !== 'object' || Array.isArray(input.permissions)) {
+      throw new Error('Permissions must be an object');
+    }
+    normalized.permissions = Object.fromEntries(PERMISSION_KEYS.map(key => [key, Boolean(input.permissions[key])]));
+    if (!normalized.permissions.canView) throw new Error('Every share must allow viewing');
+  }
+  if (input.allowedEmails !== undefined) {
+    if (!Array.isArray(input.allowedEmails) || input.allowedEmails.length > 100) throw new Error('Allowed emails must contain at most 100 addresses');
+    const emails = [...new Set(input.allowedEmails.map(value => String(value).trim().toLowerCase()).filter(Boolean))];
+    if (emails.some(email => !validator.isEmail(email))) throw new Error('Every allowed email address must be valid');
+    normalized.allowedEmails = emails;
+  }
+  if (input.expiresAt !== undefined) {
+    if (input.expiresAt === null || input.expiresAt === '') normalized.expiresAt = null;
+    else {
+      const expiry = new Date(input.expiresAt);
+      if (Number.isNaN(expiry.getTime())) throw new Error('Expiry date is invalid');
+      normalized.expiresAt = expiry.toISOString();
+    }
+  }
+  if (input.password !== undefined) {
+    const password = String(input.password || '');
+    if (password && (password.length < 8 || password.length > 128)) throw new Error('Link passwords must be 8 to 128 characters');
+    normalized.password = password || null;
+  }
+  if (input.guestTrelloToken !== undefined) {
+    const token = String(input.guestTrelloToken || '').trim();
+    if (token.length > 4096) throw new Error('Relay token is too long');
+    normalized.guestTrelloToken = token || null;
+  }
+  if (input.isActive !== undefined) normalized.isActive = Boolean(input.isActive);
+  return normalized;
+}
 
 // Resolve a card identifier (full 24-char id OR the 8-char shortLink found in
 // trello.com/c/... URLs) to its canonical Trello card. Both forms point to the
@@ -42,7 +90,7 @@ exports.getShares = async (req, res) => {
 
     res.json({
       success: true,
-      data: paginatedShares,
+      data: paginatedShares.map(presentSharedLink),
       pagination: {
         total: shares.length,
         page,
@@ -62,7 +110,8 @@ exports.getShares = async (req, res) => {
 // Create new share
 exports.createShare = async (req, res) => {
   try {
-    let { cardId, cardName, boardId, boardName, permissions, allowedEmails, expiresAt, password, guestTrelloToken } = req.body;
+    const validated = normalizeShareInput(req.body);
+    let { cardId, cardName, boardId, boardName, permissions, allowedEmails, expiresAt, password, guestTrelloToken } = validated;
     const userId = req.user._id || req.user.id;
 
     // Canonicalize the card identifier so the duplicate check can't be bypassed
@@ -89,7 +138,7 @@ exports.createShare = async (req, res) => {
           success: true,
           duplicate: true,
           message: 'An active share link already exists for this card.',
-          data: existing,
+          data: presentSharedLink(existing),
           creditsRemaining
         });
       }
@@ -147,21 +196,22 @@ exports.createShare = async (req, res) => {
         webhook = await ensureWebhookForShare(share);
       } catch (error) {
         console.error('Share created with polling fallback because webhook setup failed:', error);
-        webhook = { enabled: false, reason: 'registration-failed', error: error.message };
+        webhook = { enabled: false, reason: 'registration-failed' };
       }
     }
 
     res.status(201).json({
       success: true,
-      data: share,
+      data: presentSharedLink(share),
       webhook,
       creditsRemaining
     });
   } catch (error) {
     console.error('Create share error:', error);
-    res.status(500).json({
+    const validationError = /required|must|invalid|characters|addresses|too long/i.test(error.message);
+    res.status(validationError ? 400 : 500).json({
       success: false,
-      message: 'Error creating share'
+      message: validationError ? error.message : 'Error creating share'
     });
   }
 };
@@ -181,7 +231,7 @@ exports.getShare = async (req, res) => {
 
     res.json({
       success: true,
-      data: share
+      data: presentSharedLink(share)
     });
   } catch (error) {
     console.error('Get share error:', error);
@@ -195,7 +245,7 @@ exports.getShare = async (req, res) => {
 // Update share
 exports.updateShare = async (req, res) => {
   try {
-    const { permissions, allowedEmails, expiresAt, isActive, guestTrelloToken } = req.body;
+    const { permissions, allowedEmails, expiresAt, isActive, guestTrelloToken, password } = normalizeShareInput(req.body, { partial: true });
     const userId = req.user._id || req.user.id;
 
     const share = await SharedLink.findById(req.params.shareId);
@@ -213,6 +263,7 @@ exports.updateShare = async (req, res) => {
     if (expiresAt !== undefined) updates.expiresAt = expiresAt;
     if (isActive !== undefined) updates.isActive = isActive;
     if (guestTrelloToken !== undefined) updates.guestTrelloToken = guestTrelloToken;
+    if (password !== undefined) updates.password = password ? await bcrypt.hash(password, 10) : null;
 
     const updatedShare = await SharedLink.updateById(req.params.shareId, updates);
 
@@ -222,20 +273,21 @@ exports.updateShare = async (req, res) => {
         webhook = await ensureWebhookForShare(updatedShare);
       } catch (error) {
         console.error('Updated share is using polling fallback because webhook setup failed:', error);
-        webhook = { enabled: false, reason: 'registration-failed', error: error.message };
+        webhook = { enabled: false, reason: 'registration-failed' };
       }
     }
 
     res.json({
       success: true,
-      data: updatedShare,
+      data: presentSharedLink(updatedShare),
       webhook
     });
   } catch (error) {
     console.error('Update share error:', error);
-    res.status(500).json({
+    const validationError = /required|must|invalid|characters|addresses|too long/i.test(error.message);
+    res.status(validationError ? 400 : 500).json({
       success: false,
-      message: 'Error updating share'
+      message: validationError ? error.message : 'Error updating share'
     });
   }
 };
@@ -287,7 +339,7 @@ exports.toggleActive = async (req, res) => {
 
     res.json({
       success: true,
-      data: updatedShare
+      data: presentSharedLink(updatedShare)
     });
   } catch (error) {
     console.error('Toggle active error:', error);

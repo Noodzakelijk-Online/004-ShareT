@@ -92,11 +92,11 @@ const Index = () => {
       
       <footer className="py-8 px-8 border-t border-border">
         <div className="max-w-5xl mx-auto flex flex-col md:flex-row justify-between items-center">
-          <p className="text-muted-foreground mb-4 md:mb-0">© 2023 ShareT. All rights reserved.</p>
+          <p className="text-muted-foreground mb-4 md:mb-0">© {new Date().getFullYear()} ShareT. All rights reserved.</p>
           <div className="flex space-x-6">
-            <a href="#" className="text-muted-foreground hover:text-foreground">Privacy</a>
-            <a href="#" className="text-muted-foreground hover:text-foreground">Terms</a>
-            <a href="#" className="text-muted-foreground hover:text-foreground">Contact</a>
+            <Link to="/privacy" className="text-muted-foreground hover:text-foreground">Privacy</Link>
+            <Link to="/terms" className="text-muted-foreground hover:text-foreground">Terms</Link>
+            <a href="https://github.com/Noodzakelijk-Online/004-ShareT/issues" className="text-muted-foreground hover:text-foreground" target="_blank" rel="noreferrer">Support</a>
           </div>
         </div>
       </footer>
