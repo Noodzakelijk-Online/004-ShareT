@@ -14,7 +14,7 @@ The repository is a production-oriented owner-acceptance candidate. The local ap
 | Frontend clean install | Passed with `npm ci` in the working checkout; a separate committed-clone retry timed out on this Windows/antivirus host and remains an independent-machine gate. |
 | Backend clean install | Passed with `npm ci`; dependency tree is consistent. |
 | Frontend lint | Passed with zero warnings. |
-| Backend tests | 34 passed, 0 failed, including proactive credential migration and unsafe-downgrade rejection. |
+| Backend tests | 37 passed, 0 failed, including proactive credential migration, unsafe-downgrade rejection, authenticated cross-user HTTP isolation, adversarial attachment filenames, and the Trello attachment credential boundary. |
 | Production build/copy | Passed; 2,369 modules transformed and the served bundle refreshed. |
 | Frontend audit | 0 vulnerabilities after lockfile-safe advisory updates. |
 | Backend audit | 0 high/critical; 7 moderate reports are the upstream PouchDB UUID advisory. npm's only automatic proposal is an unsafe downgrade from PouchDB 8 to 6, so it was not applied. |
@@ -42,12 +42,15 @@ The repository is a production-oriented owner-acceptance candidate. The local ap
 - The scheduled Windows watchdog was found recreating the container from an older Compose file. Its installed and repository scripts now use the same explicit env file and IPv4 readiness probe as deployment. A manual watchdog tick did not recreate the container; Docker, local readiness, public readiness, and PouchDB all remained healthy.
 - The installed Windows source was reconciled byte-for-byte with all 186 tracked release files while preserving four local environment files, backups, and logs; 44 obsolete mock, Mongo, and Power-Up files were removed. A canonical rebuild contained no `.env*` files, and the running container now uses that exact local image.
 - Docker build inputs are separated by responsibility: local environment files, backups, support bundles, and rotated watchdog logs are excluded, while backend-only rebuild validation kept every frontend layer cached and completed in 13.3 seconds instead of rebuilding 2,369 frontend modules.
+- The attachment security and cross-user isolation release was rebuilt from commit `ed140c1`; the completed image contained no `.env*` files, the installed source was semantically identical after Windows line-ending normalization, Docker reported `healthy` with zero restarts, and both local and static-ngrok `/ready` reported data schema 1.
 
 ## Security and truthfulness checks
 
 - Public card data and mutations are denied until every configured password and participant factor passes.
 - Browser sessions use HttpOnly cookies; API credentials, password hashes, encrypted relay data, and connector hashes are stripped from presentations and exports.
 - Trello relay assignment, owner watching, notification-health reporting, signed webhook validation, conservative reply routing, retry, and idempotency have regression coverage.
+- Authenticated HTTP integration tests prove that one account cannot list, read, update, toggle, inspect statistics for, or delete another account's share; every direct-object attempt returns the same concealed 404 and leaves the owner record unchanged.
+- Attachment names are normalized against traversal, control-character, header-injection, Unicode, length, and Windows reserved-name cases. The owner's Trello credential is only sent to an exact trusted HTTPS Trello origin, and redirects are rejected so the credential cannot be forwarded to an attachment-controlled host.
 - Payment-page navigation cannot grant credits. Client-declared billing/resource-success endpoints and fake dashboard behavior were removed.
 - Tracked secret-bearing environment files were removed. A full redacted Gitleaks scan measured 30 historical candidates across eight commits: 20 in `.env.docker`, five in generated dependency artifacts, and five documentation placeholders. The current PR range has zero findings, and CI now scans changed history on every push or pull request. Any real credential that existed in Git history must still be rotated by its owner; removing the current file or passing the new-change gate does not revoke it.
 
