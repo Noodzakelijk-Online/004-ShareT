@@ -15,6 +15,13 @@ set "LOG=%~dp0watchdog.log"
 set "DOCKER_EXE=C:\Program Files\Docker\Docker\Docker Desktop.exe"
 set PORT=5005
 
+:: Keep unattended watchdog logging bounded. Preserve one previous log for
+:: diagnosis and cap total retained text at roughly 10 MB.
+if exist "%LOG%" for %%F in ("%LOG%") do if %%~zF GTR 5242880 (
+    if exist "%LOG%.1" del /q "%LOG%.1"
+    move /y "%LOG%" "%LOG%.1" >nul
+)
+
 call :log "tick ----------------------------------------"
 
 :: ── 1) Docker engine reachable? ─────────────────────────────
