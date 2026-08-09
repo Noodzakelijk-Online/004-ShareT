@@ -5,7 +5,7 @@ Branch: `agent/sharet-giant-goal`
 
 ## Release decision
 
-The repository is a production-oriented owner-acceptance candidate. The local application, browser flows, database boundary, connector contract, Windows scripts, and Docker configuration have been exercised. It is not yet provider-accepted: real Trello accounts, SMTP delivery, a static ngrok origin, HAI import, CouchDB recovery, and credential rotation require the operator's accounts and approval.
+The repository is a production-oriented owner-acceptance candidate. The local application, browser flows, database boundary, connector contract, Windows scripts, Docker deployment, static ngrok origin, and backup/restore path have been exercised. It is not yet provider-accepted: a distinct Trello relay identity, end-to-end SMTP reply delivery, HAI source activation, CouchDB recovery, and historical credential rotation require the operator's accounts and approval.
 
 ## Automated evidence
 
@@ -33,6 +33,10 @@ The repository is a production-oriented owner-acceptance candidate. The local ap
 - The QA environment intentionally lacked SMTP and Trello credentials; the UI and readiness endpoint reported those capabilities unavailable instead of simulating success.
 - The database index marker skipped index rebuilding on restart. On this Windows/antivirus environment, cold process and database startup still reached readiness at about 85 seconds, so Docker now grants a 90-second first-start health period.
 - A no-hardlink clone of commit `b6bc86c` was created successfully. Its backend clean install, 32 tests, and high-severity audit gate passed. Its frontend `npm ci` did not complete within either a four-minute or ten-minute window on this host, even though the same lockfile's clean install passed in the working checkout; this is recorded as unresolved environment acceptance rather than reported as success.
+- The production Compose stack was rebuilt and restarted on Windows 11. `sharet-app` reached Docker `healthy` with zero restarts, and both local and static-ngrok `/ready` returned 200 with PouchDB connected and zero runtime errors.
+- The ngrok container receives only `NGROK_AUTHTOKEN`; application JWT, Trello, SMTP, Stripe, and database credentials are no longer copied into that container. The current ngrok `--url=https://...` syntax was verified against the running image.
+- An offline archive of the live named data volume was created before deployment (1,518,080 bytes, 267 entries, SHA-256 `F536A7B6480D7248F7FFAE72F46E351C96174B464DF7561F15CBC0B0F2B8B02F`). An isolated backup/restore round trip preserved hashes and prior destination state, while a tampered backup was rejected before destination creation.
+- The support bundle reached the live readiness endpoint, reported zero runtime errors, contained no environment block, and matched none of the configured sensitive credential values.
 
 ## Security and truthfulness checks
 
@@ -44,4 +48,4 @@ The repository is a production-oriented owner-acceptance candidate. The local ap
 
 ## Required live acceptance
 
-Before calling the deployment production-live, complete the operator checklist in `docs/ACCEPTANCE_TESTS.md`: rotate historical credentials; configure a dedicated ShareT Trello relay, SMTP, and a static HTTPS origin; run a real freelancer comment to Trello bell to mobile owner reply to verified-email cycle; import and revoke a connector in HAI; and test backup/restore plus optional CouchDB recovery.
+Before calling the deployment production-live, complete the operator checklist in `docs/ACCEPTANCE_TESTS.md`: rotate historical credentials; configure a dedicated ShareT Trello relay and confirm SMTP delivery; run a real freelancer comment to Trello bell to mobile owner reply to verified-email cycle; activate and revoke the ShareT source in HAI; and test optional CouchDB conflict recovery.

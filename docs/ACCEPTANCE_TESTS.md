@@ -21,8 +21,8 @@ Updated: 2026-08-09
 | Account export/delete | Export is redacted; deletion removes owned records only. | Automated redaction plus local endpoint lifecycle passed. |
 | Maintenance/public kill switch | Mutations or all public links fail closed with explicit 503. | Code present; runtime smoke pending. |
 | Static deployment update | HTML revalidates; hashed assets cache immutably; reload does not request obsolete chunks. | Response-header and rebuild/restart browser smoke passed. |
-| Windows standalone | Clean install, doctor, start, health, backup, restart. | Clean installs, doctor, start/readiness, and restart passed on Windows 11; independent-machine acceptance pending. |
-| Docker/ngrok | Compose substitutes static domain and public `/ready` works. | Compose validation passed; live static-domain tunnel pending. |
+| Windows standalone | Clean install, doctor, start, health, backup, restart. | Clean installs, doctor, start/readiness, restart, and isolated backup/restore passed on Windows 11; independent-machine acceptance pending. |
+| Docker/ngrok | Compose substitutes static domain and public `/ready` works. | Live Windows Compose stack is healthy; local and static-ngrok `/ready` return 200. Ngrok receives only its own credential. |
 | CouchDB sync | All active databases replicate and reconnect. | Code present; live CouchDB conflict/recovery pass pending. |
 
 ## Automated commands

@@ -31,7 +31,7 @@ For production use, configure a named Cloudflare Tunnel and a permanent hostname
 Good for testing and acceptable for production only when you use a static ngrok domain.
 
 ```bash
-ngrok http --domain=your-static-domain.ngrok-free.app 5005
+ngrok http 5005 --url=https://your-static-domain.ngrok-free.app
 ```
 
 Set `PUBLIC_URL`, `FRONTEND_URL`, and `CORS_ORIGIN` to the stable ngrok HTTPS URL.

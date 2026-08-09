@@ -2,7 +2,7 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 
-for (const candidate of ['../.env', '../backend/.env']) {
+for (const candidate of ['../.env', '../backend/.env', '../.env.docker']) {
   try { process.loadEnvFile?.(path.resolve(__dirname, candidate)); } catch { /* optional */ }
 }
 

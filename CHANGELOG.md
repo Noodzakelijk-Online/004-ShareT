@@ -17,6 +17,7 @@
 - Trello and relay credentials are encrypted at rest; public responses are redacted.
 - Static HTML revalidates while content-hashed assets remain immutable.
 - Production CORS and configuration validation fail closed.
+- Docker health probes use the IPv4 readiness endpoint, and ngrok receives only its own credential using current static-URL syntax.
 
 ### Removed
 

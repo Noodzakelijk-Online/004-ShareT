@@ -36,7 +36,7 @@ Updated: 2026-08-09. Status means **Implemented**, **Partial**, **Blocked**, or 
 | 029 Web security | Implemented | Helmet/CSP/CORS/rate limits/body bounds. |
 | 030 Secret rotation | Partial | Current storage hardened; historical credentials still need owner rotation. |
 | 031 One-command local setup | Implemented | `install.bat`, `start-sharet.bat`, doctor. |
-| 032 Docker/deployment | Partial | Compose and Dockerfile wired; live host acceptance pending. |
+| 032 Docker/deployment | Implemented | Live Windows Compose stack and static ngrok origin return ready; health probe and credential isolation verified. |
 | 033 Migrations/rollback | Partial | Automatic legacy credential migration and backups exist; no versioned general migration runner. |
 | 034 Doctor command | Implemented | `npm run doctor`. |
 | 035 Health/readiness | Implemented | Separate `/health` and fail-closed `/ready`. |
@@ -57,7 +57,7 @@ Updated: 2026-08-09. Status means **Implemented**, **Partial**, **Blocked**, or 
 | 050 Browser/responsive | Partial | Chromium desktop checked; full device/browser matrix pending. |
 | 051 Performance/indexing | Implemented | Query indexes, pagination, memoization, cache correction, compressed assets. |
 | 052 Large datasets | Partial | Pagination unit-tested; production-size Trello/account load test pending. |
-| 053 Backup/restore | Implemented | Hashed manifest, confirmation restore, previous-data preservation. |
+| 053 Backup/restore | Implemented | Hashed manifest, confirmation restore, previous-data preservation, isolated round trip, and tamper rejection verified. |
 | 054 Reconciliation/repair | Partial | Webhook reconciliation exists; general DB repair command does not. |
 | 055 Product analytics | Not applicable | Privacy-first product has no analytics provider. |
 | 056 SaaS without forced billing | Implemented | Core runs locally; fake metering removed; credits remain server-authoritative. |
@@ -85,7 +85,7 @@ Updated: 2026-08-09. Status means **Implemented**, **Partial**, **Blocked**, or 
 | 078 Red-team loop 1 | Implemented | Auth/data-fetch and reset-link review. |
 | 079 Red-team loop 2 | Implemented | Provider identity/notification and ambiguity review. |
 | 080 Red-team loop 3 | Implemented | Deployment caching, CORS, billing, and connector review. |
-| 081 Non-technical simulation | Partial | Core local browser path checked; first real deployment pending. |
+| 081 Non-technical simulation | Partial | Core local and public browser paths plus first real deployment checked; live provider conversation pending. |
 | 082 Autonomy-first review | Implemented | Auto relay assignment and reply routing minimize monitoring. |
 | 083 Value review | Implemented | Work remains in Trello; freelancers need no Trello account. |
 | 084 Product realism | Implemented | Provider/configuration limits visible and fail closed. |
@@ -123,4 +123,4 @@ Updated: 2026-08-09. Status means **Implemented**, **Partial**, **Blocked**, or 
 
 ## Honest release decision
 
-The repository has a production-oriented baseline and is suitable for owner acceptance testing. It is **not yet proven production-live** because provider credentials, a static public origin, real email delivery, real Trello notification behavior, HAI import, and historical credential rotation require the operator's accounts and approval.
+The repository has a production-oriented baseline and a healthy static public deployment suitable for owner acceptance testing. It is **not yet proven provider-live** because a distinct relay identity, real email delivery, real Trello notification behavior, HAI source activation, CouchDB recovery, and historical credential rotation require the operator's accounts and approval.

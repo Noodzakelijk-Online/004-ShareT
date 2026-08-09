@@ -27,7 +27,7 @@ services:
       # Plain `restart: always` only restarts on EXIT, not on unhealthy.
       - "autoheal=true"
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:5005/ready"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:5005/ready"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -53,16 +53,15 @@ services:
     restart: always
     depends_on:
       - sharet
-    # NGROK_AUTHTOKEN comes from .env.docker via env_file — the ngrok image
-    # reads it from its environment. (Don't add an `environment:` override here:
-    # it would win over env_file and blank the token.)
-    env_file:
-      - .env.docker
+    # Pass only the ngrok credential to the tunnel container. Do not expose the
+    # application's JWT, Trello, SMTP, Stripe, or database credentials here.
+    environment:
+      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN:?Set NGROK_AUTHTOKEN in .env.docker}
     # Static free domain — keep in sync with PUBLIC_URL in .env.docker.
     command:
       - "http"
       - "sharet:5005"
-      - "--domain=${NGROK_DOMAIN}"
+      - "--url=https://${NGROK_DOMAIN}"
     logging:
       driver: "json-file"
       options:
