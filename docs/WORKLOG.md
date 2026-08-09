@@ -11,9 +11,12 @@
 - Fixed OAuth callback, password reset, stale static manifest, CORS, credit fail-open, localStorage history, and fake billing/resource behavior.
 - Added HAI scoped connector credentials, OpenAPI contract, UI, tests, and runbook.
 - Added CI, regression tests, architecture/security/operations/acceptance evidence, truthful compliance status, bug log, and debt register.
-- Completed clean installs, 32-test regression suite, lint, production build, audits, Compose parsing, runtime/header probes, and Chromium acceptance paths.
+- Completed clean installs, 37-test regression suite, lint, production build, audits, Compose parsing, runtime/header probes, and Chromium acceptance paths.
 - Fixed final QA findings: CSP-safe theme initialization, a quiet signed-out session probe, public-link form semantics, `/share` backward compatibility, a not-found page, and a 90-second first-start health grace.
+- Added a versioned startup migration that proactively encrypted the last legacy plaintext Trello credential, rejects newer unsupported schemas before writes, and records readiness-visible schema history.
+- Added authenticated HTTP cross-user isolation and adversarial attachment tests, and prevented owner Trello credentials from being forwarded to arbitrary or redirecting attachment origins.
+- Reconciled and deployed the canonical Windows source, verified the static ngrok deployment and schema-1 data volume, and published the native HAI connector as a separate draft pull request.
 
 ## Resume checkpoint
 
-Local implementation and verification are complete. A no-hardlink committed clone passed backend install/tests; its frontend install timed out twice on this antivirus-heavy host and remains an independent-machine gate. Remaining release work is repository publication plus live Trello, SMTP, static ngrok, CouchDB, and HAI-provider acceptance, all of which remain operator-gated.
+Local implementation, repository publication, and the static-ngrok Windows deployment are complete. A no-hardlink committed clone passed backend install/tests; its frontend install timed out twice on this antivirus-heavy host and remains an independent-machine gate. Remaining release work is live Trello relay/mobile-bell acceptance, one approved SMTP recipient cycle, HAI source activation with an owner-created token, historical credential rotation, and optional CouchDB recovery testing, all of which remain operator-gated.
