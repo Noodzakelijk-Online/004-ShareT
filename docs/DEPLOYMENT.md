@@ -64,7 +64,7 @@ ENCRYPTION_KEY=...
 
 ## HAI connector
 
-Open the ShareT profile and select **HAI connector**. Create a read-only or link-management credential, copy the one-time token into HAI's secure credential store, and import the displayed OpenAPI URL. The public schema is served at `/api/connector/openapi.json`; all data operations require the scoped token. Credentials expire after 90 days by default and can be revoked immediately from ShareT.
+Open the ShareT profile and select **HAI connector**. Create a read-only credential and copy its one-time value into HAI as `HAI_SHARET_CONNECTOR_TOKEN`. Set `HAI_SHARET_ENABLED=true`, set `HAI_SHARET_BASE_URL` to the displayed stable ShareT origin, restart HAI, and create the native `sharet` source with `localOnly=false` and an empty sync target. The public OpenAPI contract remains at `/api/connector/openapi.json` for other reviewed clients; all data operations require a scoped token. Credentials expire after 90 days by default and can be revoked immediately from ShareT.
 
 ## Trello notifications for external freelancers
 

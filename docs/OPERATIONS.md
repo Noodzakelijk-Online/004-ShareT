@@ -24,10 +24,12 @@ Do not rebuild files while the server is serving them. Run `npm run build:serve`
 ## HAI connection
 
 1. Sign in to ShareT and open **HAI connector** in the profile.
-2. Create read-only access first. Copy the token once into HAI's secure credential store.
-3. Import the displayed `/api/connector/openapi.json` URL.
-4. Call `getShareTStatus`, then `listTrelloTargets`, then `listShareLinks`.
-5. If HAI must create or revoke links, issue a separate credential with link-management scope. Revoke it when not required.
+2. Create read-only access. Copy the token once into HAI's protected environment as `HAI_SHARET_CONNECTOR_TOKEN`.
+3. Set `HAI_SHARET_ENABLED=true`, set `HAI_SHARET_BASE_URL` to the displayed stable ShareT origin, and keep `HAI_SHARET_SYNC_LIMIT` above the complete link count (maximum 5,000).
+4. Restart HAI and create its native `sharet` connected source with `localOnly=false` and an empty sync target.
+5. Run a sync and confirm its item count matches ShareT's complete history. Revoke the credential in ShareT to verify the next sync fails closed, then issue the final credential.
+
+HAI's native ShareT adapter is intentionally read-only. If a different reviewed API client must create or revoke links, issue a separate link-management credential and revoke it when no longer required.
 
 ## Backup, restore, and support
 

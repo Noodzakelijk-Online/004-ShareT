@@ -11,7 +11,7 @@ const HAIConnectorSettings = () => {
   const [open, setOpen] = useState(false);
   const [tokens, setTokens] = useState([]);
   const [name, setName] = useState('HAI connector');
-  const [allowWrite, setAllowWrite] = useState(true);
+  const [allowWrite, setAllowWrite] = useState(false);
   const [createdToken, setCreatedToken] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -61,6 +61,7 @@ const HAIConnectorSettings = () => {
   };
 
   const openApiUrl = `${window.location.origin}/api/connector/openapi.json`;
+  const shareTBaseUrl = window.location.origin;
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => {
@@ -74,16 +75,27 @@ const HAIConnectorSettings = () => {
         <DialogHeader>
           <DialogTitle>Connect ShareT to HAI</DialogTitle>
           <DialogDescription>
-            Create a revocable credential for HAI. The credential expires after 90 days and is stored by ShareT only as a one-way hash.
+            Create a revocable read-only credential for HAI's native ShareT source. The credential expires after 90 days and is stored by ShareT only as a one-way hash.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-5 py-2">
           <div className="space-y-2">
-            <Label>OpenAPI connector URL</Label>
+            <Label>ShareT base URL for HAI</Label>
+            <div className="flex gap-2">
+              <Input value={shareTBaseUrl} readOnly />
+              <Button type="button" variant="outline" size="icon" onClick={() => copy(shareTBaseUrl, 'ShareT base URL')} aria-label="Copy ShareT base URL">
+                <Copy className="size-4" />
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">Set this as <code>HAI_SHARET_BASE_URL</code> and enable the <code>sharet</code> source in HAI.</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label>OpenAPI contract (optional)</Label>
             <div className="flex gap-2">
               <Input value={openApiUrl} readOnly />
-              <Button type="button" variant="outline" size="icon" onClick={() => copy(openApiUrl, 'Connector URL')} aria-label="Copy connector URL">
+              <Button type="button" variant="outline" size="icon" onClick={() => copy(openApiUrl, 'OpenAPI URL')} aria-label="Copy OpenAPI URL">
                 <Copy className="size-4" />
               </Button>
             </div>
@@ -92,7 +104,7 @@ const HAIConnectorSettings = () => {
           {createdToken ? (
             <div className="space-y-2 rounded-md border border-amber-500/50 bg-amber-500/10 p-4">
               <p className="font-medium">Copy this token now</p>
-              <p className="text-sm text-muted-foreground">It will not be shown again. Store it in HAI's secure credential store.</p>
+              <p className="text-sm text-muted-foreground">It will not be shown again. Set it as <code>HAI_SHARET_CONNECTOR_TOKEN</code> in HAI's protected environment.</p>
               <div className="flex gap-2">
                 <Input value={createdToken} readOnly type="password" />
                 <Button type="button" onClick={() => copy(createdToken, 'Connector token')}>
@@ -109,8 +121,8 @@ const HAIConnectorSettings = () => {
               <label className="flex items-start gap-3 text-sm">
                 <input type="checkbox" checked={allowWrite} onChange={event => setAllowWrite(event.target.checked)} className="mt-1" />
                 <span>
-                  <span className="block font-medium">Allow HAI to create and manage links</span>
-                  <span className="text-muted-foreground">Turn this off for read-only access to Trello targets and existing links.</span>
+                  <span className="block font-medium">Also allow trusted API clients to manage links</span>
+                  <span className="text-muted-foreground">HAI's native ShareT source is read-only and does not need this. Enable it only for a separately reviewed API workflow.</span>
                 </span>
               </label>
               <Button type="button" onClick={createToken} disabled={loading || !name.trim()}>

@@ -115,7 +115,7 @@ The browser uses secure HttpOnly authentication cookies. Non-browser API clients
 Authorization: Bearer your_access_token
 ```
 
-For HAI, use **HAI connector** in the profile. ShareT creates a 90-day, revocable credential that is shown once and stored only as a hash. Give HAI the OpenAPI URL shown in that dialog (normally `/api/connector/openapi.json`) and the generated bearer token. Choose read-only or link-management access; password login credentials are never needed.
+For HAI, use **HAI connector** in the profile. ShareT creates a 90-day, revocable credential that is shown once and stored only as a hash. Create read-only access, then set HAI's `HAI_SHARET_BASE_URL` to the displayed ShareT origin and `HAI_SHARET_CONNECTOR_TOKEN` to the one-time token. Enable the native `sharet` source with an empty sync target. The OpenAPI URL remains available as a contract for other reviewed clients; password login credentials are never needed.
 
 ### Authentication
 

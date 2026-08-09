@@ -27,7 +27,7 @@ Updated: 2026-08-09. Status means **Implemented**, **Partial**, **Blocked**, or 
 | 020 Dashboard actions | Implemented | Search, link history, notification health, exception admin view. |
 | 021 Forms/autosave | Partial | Validation is implemented; policy-form autosave is intentionally absent. |
 | 022 Search/pagination | Implemented | Hierarchical picker and complete 25-row history pages. |
-| 023 Import/export | Implemented | Account export, report-safe bundle, OpenAPI import. |
+| 023 Import/export | Implemented | Account export, report-safe bundle, and OpenAPI connector contract. |
 | 024 Templates/presets | Not applicable | No validated recurring policy template requirement. |
 | 025 AI abstraction | Not applicable | ShareT uses no AI provider. |
 | 026 Human approval queue | Not applicable | No autonomous external decision; ambiguity alone is queued. |

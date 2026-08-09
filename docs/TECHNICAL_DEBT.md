@@ -3,7 +3,7 @@
 | Priority | Item | Why it remains |
 | --- | --- | --- |
 | P0 operator | Rotate all credentials previously committed to Git history. | Code cannot revoke external secrets. |
-| P0 acceptance | Complete live Trello relay, owner mobile reply, SMTP, static ngrok, and HAI import tests. | Requires owner accounts and public provider state. |
+| P0 acceptance | Complete live Trello relay, owner mobile reply, SMTP, and native HAI source activation tests. | Requires owner accounts and public provider state. |
 | P1 | Add HTTP-level cross-user, connector-scope, upload traversal, and maintenance-mode tests. | Core unit coverage exists; integration harness is still limited. |
 | P1 | Add React component tests and a Firefox/mobile browser matrix. | Current evidence is lint/build plus Chromium QA. |
 | P1 | Add versioned, resumable database migrations and repair tooling. | Current migrations only cover legacy credential fields. |
