@@ -11,7 +11,7 @@ The repository is a production-oriented owner-acceptance candidate. The local ap
 
 | Gate | Result |
 | --- | --- |
-| Frontend clean install | Passed with `npm ci`; dependency tree is consistent. |
+| Frontend clean install | Passed with `npm ci` in the working checkout; a separate committed-clone retry timed out on this Windows/antivirus host and remains an independent-machine gate. |
 | Backend clean install | Passed with `npm ci`; dependency tree is consistent. |
 | Frontend lint | Passed with zero warnings. |
 | Backend tests | 32 passed, 0 failed. |
@@ -32,6 +32,7 @@ The repository is a production-oriented owner-acceptance candidate. The local ap
 - Chromium rendered sign-in, privacy, terms, the canonical `/shared/:id` link, and the compatibility `/share/:id` link. A valid link secret advanced to the freelancer name/email gate with no application console errors.
 - The QA environment intentionally lacked SMTP and Trello credentials; the UI and readiness endpoint reported those capabilities unavailable instead of simulating success.
 - The database index marker skipped index rebuilding on restart. On this Windows/antivirus environment, cold process and database startup still reached readiness at about 85 seconds, so Docker now grants a 90-second first-start health period.
+- A no-hardlink clone of commit `b6bc86c` was created successfully. Its backend clean install, 32 tests, and high-severity audit gate passed. Its frontend `npm ci` did not complete within either a four-minute or ten-minute window on this host, even though the same lockfile's clean install passed in the working checkout; this is recorded as unresolved environment acceptance rather than reported as success.
 
 ## Security and truthfulness checks
 

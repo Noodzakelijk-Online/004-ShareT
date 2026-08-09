@@ -96,7 +96,7 @@ Updated: 2026-08-09. Status means **Implemented**, **Partial**, **Blocked**, or 
 | 089 Stabilization gates | Implemented | Lint → tests → build → browser → provider acceptance order. |
 | 090 No vanity work | Implemented | Unsupported marketing/performance claims removed. |
 | 091 Feature definition of done | Implemented | Acceptance rows define observable outcomes. |
-| 092 Fresh clone | Partial | Clean installs pass in the working checkout; committed-clone and independent-machine gates remain. |
+| 092 Fresh clone | Partial | No-hardlink clone plus backend install/tests pass; cloned frontend `npm ci` timed out on this host, so independent-machine acceptance remains. |
 | 093 Manual evidence | Partial | Local Chromium evidence recorded; live provider evidence pending. |
 | 094 Final search | Implemented | Dead/mock/secret/TODO searches and diff integrity run before release commit. |
 | 095 Completion matrix | Implemented | This file. |

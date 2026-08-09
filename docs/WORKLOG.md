@@ -16,4 +16,4 @@
 
 ## Resume checkpoint
 
-Local implementation and verification are complete. Remaining release work is the repository publish/fresh-clone gate plus live Trello, SMTP, static ngrok, CouchDB, and HAI-provider acceptance, all of which remain operator-gated.
+Local implementation and verification are complete. A no-hardlink committed clone passed backend install/tests; its frontend install timed out twice on this antivirus-heavy host and remains an independent-machine gate. Remaining release work is repository publication plus live Trello, SMTP, static ngrok, CouchDB, and HAI-provider acceptance, all of which remain operator-gated.
