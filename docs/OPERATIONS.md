@@ -37,6 +37,7 @@ HAI's native ShareT adapter is intentionally read-only. If a different reviewed 
 
 - Stop writes, then run `npm run backup` before upgrades or credential migrations.
 - Verify the manifest and test `npm run restore -- <backup-directory> --confirm` only against a non-production copy first.
+- Startup applies forward-only, versioned, idempotent data migrations before readiness becomes available. `/ready` reports the current and supported schema versions. If an upgrade fails, stop ShareT and restore the verified pre-upgrade backup; ShareT refuses to open a database created by a newer unsupported schema.
 - `npm run support-bundle` gathers configuration state and health without copying secret environment files or raw database data.
 - Set `MAINTENANCE_MODE=true` to block mutations during work.
 - Set `SHARET_DISABLE_PUBLIC_ACCESS=true` to stop all public share routes immediately.

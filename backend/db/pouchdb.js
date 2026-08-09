@@ -15,6 +15,7 @@ const PouchDBFind = require('pouchdb-find');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const { encrypt: encryptSecret, decrypt: decryptSecret } = require('../utils/crypto');
+const { runMigrations } = require('./migrations');
 
 // Add find plugin for queries
 PouchDB.plugin(PouchDBFind);
@@ -22,6 +23,7 @@ PouchDB.plugin(PouchDBFind);
 // Database instances
 const databases = {};
 const INDEX_SCHEMA_VERSION = 1;
+let migrationState = null;
 
 // Initialize databases
 async function initDatabases(dataDir = './data') {
@@ -36,6 +38,7 @@ async function initDatabases(dataDir = './data') {
   
   // Create indexes for efficient queries
   await createIndexes();
+  migrationState = await runMigrations(databases, { encryptSecret });
   
   return databases;
 }
@@ -1257,6 +1260,10 @@ async function getStats() {
   return stats;
 }
 
+function getMigrationState() {
+  return migrationState ? { ...migrationState, history: [...migrationState.history] } : null;
+}
+
 async function pruneExpiredData(now = new Date()) {
   const retentionDays = Math.max(7, Math.min(3650, Number(process.env.SHARET_ACCESS_LOG_RETENTION_DAYS || 90)));
   const cutoff = now.getTime() - retentionDays * 24 * 60 * 60 * 1000;
@@ -1297,6 +1304,7 @@ module.exports = {
   setupSync,
   closeAll,
   getStats,
+  getMigrationState,
   pruneExpiredData,
   databases,
   generateId,

@@ -24,7 +24,7 @@ const compression = require('compression');
 const sirv = require('sirv');
 
 // Import PouchDB database layer
-const { initDatabases, setupSync, closeAll, getStats, pruneExpiredData } = require('./db/pouchdb');
+const { initDatabases, setupSync, closeAll, getStats, getMigrationState, pruneExpiredData } = require('./db/pouchdb');
 
 // Import optimized utilities (GitHub Gems)
 const { logger, httpLogger, loggers } = require('./utils/logger');
@@ -196,6 +196,7 @@ app.get('/ready', async (req, res) => {
       type: 'PouchDB',
       status: dbInitialized ? 'connected' : 'initializing',
       cloudSync: process.env.COUCHDB_URL ? 'enabled' : 'disabled',
+      schema: getMigrationState(),
       stats: dbStats
     },
     memory: {

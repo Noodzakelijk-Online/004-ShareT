@@ -37,7 +37,7 @@ Updated: 2026-08-09. Status means **Implemented**, **Partial**, **Blocked**, or 
 | 030 Secret rotation | Partial | Current storage hardened; full redacted history baseline measured, current PR range clean, and commit-pinned Gitleaks CI added. Historical credentials still need owner rotation. |
 | 031 One-command local setup | Implemented | `install.bat`, `start-sharet.bat`, doctor. |
 | 032 Docker/deployment | Implemented | Live Windows Compose stack and static ngrok origin return ready; health probe and credential isolation verified. |
-| 033 Migrations/rollback | Partial | Automatic legacy credential migration and backups exist; no versioned general migration runner. |
+| 033 Migrations/rollback | Implemented | Versioned, idempotent startup migrations proactively encrypt legacy credentials, reject unsafe downgrades, expose schema state in readiness, and use verified backup/restore for rollback. |
 | 034 Doctor command | Implemented | `npm run doctor`. |
 | 035 Health/readiness | Implemented | Separate `/health` and fail-closed `/ready`. |
 | 036 Operator diagnostics | Implemented | Admin status and support bundle. |
