@@ -87,4 +87,8 @@ test('startup refuses data written by a newer ShareT schema', async t => {
     initDatabases(dataDirectory),
     /newer than supported schema/
   );
+  await assert.rejects(
+    databases.users.get('_local/sharet-index-schema'),
+    error => error?.status === 404
+  );
 });

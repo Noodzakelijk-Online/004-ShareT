@@ -36,9 +36,13 @@ async function initDatabases(dataDir = './data') {
     databases[name] = new PouchDB(`${dataDir}/${name}`, { auto_compaction: true });
   });
   
-  // Create indexes for efficient queries
-  await createIndexes();
+  // Validate and migrate data before any index/design-document write. This
+  // keeps an older binary from modifying a database created by a newer one.
   migrationState = await runMigrations(databases, { encryptSecret });
+
+  // Create indexes for efficient queries only after schema compatibility is
+  // proven and all required forward migrations have completed.
+  await createIndexes();
   
   return databases;
 }
