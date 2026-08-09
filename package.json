@@ -7,11 +7,16 @@
     "node": ">=22.0.0"
   },
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "build:dev": "vite build --mode development",
-    "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
-    "preview": "vite preview"
+    "dev": "node ./node_modules/vite/bin/vite.js",
+    "build": "node ./node_modules/vite/bin/vite.js build",
+    "build:dev": "node ./node_modules/vite/bin/vite.js build --mode development",
+    "build:serve": "npm run build && node scripts/copy-frontend-build.js",
+    "backup": "node scripts/backup.cjs",
+    "doctor": "node scripts/doctor.cjs",
+    "lint": "node ./node_modules/eslint/bin/eslint.js . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
+    "preview": "node ./node_modules/vite/bin/vite.js preview",
+    "restore": "node scripts/restore.cjs",
+    "support-bundle": "node scripts/support-bundle.cjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.6.0",
@@ -61,8 +66,7 @@
     "react-hook-form": "^7.52.0",
     "react-markdown": "^10.1.0",
     "react-resizable-panels": "^2.0.19",
-    "react-router-dom": "^6.30.4",
-    "recharts": "^2.12.7",
+    "react-router-dom": "^7.18.2",
     "remark-breaks": "^4.0.0",
     "remark-gfm": "^4.0.1",
     "sonner": "^1.5.0",

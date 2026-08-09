@@ -31,10 +31,18 @@ For production use, configure a named Cloudflare Tunnel and a permanent hostname
 Good for testing and acceptable for production only when you use a static ngrok domain.
 
 ```bash
-ngrok http 5005
+ngrok http --domain=your-static-domain.ngrok-free.app 5005
 ```
 
 Set `PUBLIC_URL`, `FRONTEND_URL`, and `CORS_ORIGIN` to the stable ngrok HTTPS URL.
+
+For the bundled Docker stack, copy `.env.docker.example` to `.env.docker`, set `NGROK_DOMAIN` to the hostname only, then run:
+
+```bash
+docker compose --env-file .env.docker up -d --build
+```
+
+The explicit `--env-file` is required because Compose substitutes `NGROK_DOMAIN` before the container starts.
 
 ### 3. VPS / always-on server
 
@@ -49,7 +57,14 @@ FRONTEND_URL=https://your-stable-sharet-domain.example
 CORS_ORIGIN=https://your-stable-sharet-domain.example
 TRELLO_API_KEY=...
 TRELLO_API_SECRET=...
+JWT_SECRET=...
+JWT_REFRESH_SECRET=...
+ENCRYPTION_KEY=...
 ```
+
+## HAI connector
+
+Open the ShareT profile and select **HAI connector**. Create a read-only or link-management credential, copy the one-time token into HAI's secure credential store, and import the displayed OpenAPI URL. The public schema is served at `/api/connector/openapi.json`; all data operations require the scoped token. Credentials expire after 90 days by default and can be revoked immediately from ShareT.
 
 ## Trello notifications for external freelancers
 

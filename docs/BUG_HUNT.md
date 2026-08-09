@@ -1,0 +1,26 @@
+# App-wide bug hunt
+
+Updated: 2026-08-09
+
+| Finding | Resolution |
+| --- | --- |
+| Restricted share fetched Trello card data before password/email authorization. | Authorization now runs first for every content/action route. |
+| Password-protected endpoints did not consistently carry the password grant. | Signed per-share grant is stored in session storage and attached to every protected request. |
+| Trello credentials and share relay tokens were plaintext and serialized. | Encrypted at rest with automatic migration; public/owner presenters redact them. |
+| Browser auth depended on localStorage bearer tokens. | HttpOnly cookie sessions; bearer response is explicit opt-in only. |
+| Trello OAuth callback still sent `Bearer null` after the cookie migration. | Callback now uses the existing same-origin cookie and an external CSP-compatible script. |
+| OAuth callback accepted an arbitrary origin. | Production callback origin is restricted to configured trusted origins. |
+| Previous links silently fell back to stale localStorage data. | It now reports the server failure and offers a retry. |
+| History stopped at a fixed subset. | Backend pagination and UI page navigation expose the full history. |
+| Credit lookup failed open to unlimited. | It fails closed and creation is blocked until the server balance is known. |
+| List sharing could start despite an obviously insufficient balance. | Frontend preflight blocks before the first card request. |
+| Password reset URL could be returned/logged when production mail was absent. | Reset URL fallback is development-only; production remains non-enumerating. |
+| Billing endpoints let users claim paid/refunded without a provider. | Fake billing and client-declared resource endpoints removed. |
+| Static server cached HTML as immutable, causing stale chunk manifests after deployment. | Only hashed assets are immutable; HTML revalidates. |
+| Inline callback script required a weak global CSP. | Callback script moved to a same-origin external endpoint; global inline scripts disabled. |
+| Production CORS always allowed localhost. | Local origins are development-only. |
+| Docker ngrok domain interpolation relied on `env_file`, which Compose does not use for interpolation. | Commands use `docker compose --env-file .env.docker`. |
+| Docker health checked liveness instead of readiness. | Dockerfile and Compose now check `/ready`. |
+| Account creation displayed `Invalid Date` for legacy users. | Shared user presentation normalizes missing dates to “Not available.” |
+| Public errors could expose internal provider failure detail. | Public relay/webhook failure results use stable reason codes. |
+| HAI integration required passwords or expiring login JWTs. | Added scoped, hashed, revocable connector credentials and OpenAPI 3.1. |

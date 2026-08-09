@@ -1,0 +1,40 @@
+name: ShareT quality
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NODE_ENV: test
+      JWT_SECRET: ci-jwt-secret-0123456789-abcdefghijklmnopqrstuvwxyz
+      JWT_REFRESH_SECRET: ci-refresh-secret-0123456789-abcdefghijklmnopqrstuvwxyz
+      SESSION_SECRET: ci-session-secret-0123456789-abcdefghijklmnopqrstuvwxyz
+      ENCRYPTION_KEY: ci-encryption-secret-0123456789-abcdefghijklmnopqrstuvwxyz
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+      - name: Run backend tests
+        working-directory: backend
+        run: npm test
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+      - name: Audit backend production dependencies
+        working-directory: backend
+        run: npm audit --omit=dev --audit-level=high

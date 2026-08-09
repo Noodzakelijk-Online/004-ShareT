@@ -124,7 +124,7 @@ echo.
 :: (free ngrok allows only one agent session at a time).
 taskkill /F /IM ngrok.exe /T >nul 2>&1
 
-docker-compose up -d --build
+docker compose --env-file .env.docker up -d --build
 if !errorlevel! neq 0 (
     echo.
     echo  [!] Docker build failed. See errors above.

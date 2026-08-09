@@ -5,33 +5,31 @@
  * - No database installation required (PouchDB stores data locally)
  * - Works on Windows, Mac, Linux
  * - Optional cloud sync via CouchDB
- * - All GitHub optimizations included
- * 
- * Optimizations Applied:
- * 1. PouchDB - Platform-agnostic database (16k+ ⭐)
- * 2. Sirv - 40% faster static file serving (1.2k+ ⭐)
- * 3. Pino Logger - 10x faster logging (14k+ ⭐)
- * 4. LRU Cache - In-memory caching (5k+ ⭐)
- * 5. fast-json-stringify - 2x faster JSON (3.5k+ ⭐)
- * 6. rate-limiter-flexible - Memory-efficient rate limiting (3.1k+ ⭐)
+ * - Compressed static assets, structured logging, bounded caches, rate limits,
+ *   and graceful shutdown
  */
+
+const path = require('path');
+const dotenv = require('dotenv');
+// Existing OS/container variables always win. The backend file is the primary
+// local configuration; the root file only fills values it did not provide.
+dotenv.config({ path: path.join(__dirname, '.env') });
+dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
 const express = require('express');
 const cors = require('cors');
-const session = require('express-session');
-const path = require('path');
 const fs = require('fs');
 const helmet = require('helmet');
 const compression = require('compression');
 const sirv = require('sirv');
 
 // Import PouchDB database layer
-const { initDatabases, setupSync, closeAll, getStats } = require('./db/pouchdb');
+const { initDatabases, setupSync, closeAll, getStats, pruneExpiredData } = require('./db/pouchdb');
 
 // Import optimized utilities (GitHub Gems)
 const { logger, httpLogger, loggers } = require('./utils/logger');
 const { getStats: getCacheStats, clearAll: clearCache } = require('./utils/cache');
-const { apiRateLimit, authRateLimit, sharedLinkRateLimit } = require('./utils/rateLimiter');
+const { apiRateLimit, sharedLinkRateLimit } = require('./utils/rateLimiter');
 const { errorResponseSchema, sendFastJSON } = require('./utils/jsonSerializer');
 
 // Import routes
@@ -39,12 +37,12 @@ const authRoutes = require('./routes/authRoutes');
 const trelloRoutes = require('./routes/trelloRoutes');
 const sharedLinkRoutes = require('./routes/sharedLinkRoutes');
 const sharedAccessRoutes = require('./routes/sharedAccessRoutes');
-const resourceRoutes = require('./routes/resourceRoutes');
-const billingRoutes = require('./routes/billingRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const trelloWebhookRoutes = require('./routes/trelloWebhookRoutes');
+const connectorRoutes = require('./routes/connectorRoutes');
 const { startReplyNotificationMonitor, stopReplyNotificationMonitor } = require('./services/replyNotificationService');
 const { reconcileActiveTrelloWebhooks } = require('./services/trelloWebhookService');
+const { inspectRuntimeEnvironment, validateRuntimeEnvironment } = require('./config/runtime');
 
 // Create Express app
 const app = express();
@@ -52,12 +50,24 @@ const app = express();
 // Trust proxy for Cloudflare Tunnel
 app.set('trust proxy', 1);
 
-// Pino HTTP Logger (10x faster than Morgan)
+// Structured HTTP logging
 app.use(httpLogger);
 
 // Security middleware
 app.use(helmet({
-  contentSecurityPolicy: false,
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", 'data:', 'https:'],
+      connectSrc: ["'self'", 'https://api.trello.com'],
+      objectSrc: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+      frameAncestors: ["'none'"]
+    }
+  },
   crossOriginEmbedderPolicy: false
 }));
 
@@ -79,6 +89,12 @@ const initDB = async () => {
   try {
     await initDatabases(dataDir);
     loggers.db.info({ dataDir }, 'PouchDB databases initialized');
+    const retention = await pruneExpiredData();
+    loggers.db.info({ retention }, 'Expired verification and access-log data pruned');
+    const retentionTimer = setInterval(() => {
+      pruneExpiredData().catch(error => loggers.db.error({ err: error }, 'Retention cleanup failed'));
+    }, 24 * 60 * 60 * 1000);
+    retentionTimer.unref();
     
     // Optional: Setup cloud sync if CouchDB URL is provided
     if (process.env.COUCHDB_URL) {
@@ -101,20 +117,23 @@ const initDB = async () => {
 // CORS configuration
 // Build allowed origins from env (CORS_ORIGIN can be comma-separated) + dev fallbacks
 const envOrigins = (process.env.CORS_ORIGIN || '').split(',').map(s => s.trim()).filter(Boolean);
-const allowedOrigins = [
-  ...envOrigins,
-  process.env.FRONTEND_URL,
-  process.env.PUBLIC_URL,
+const developmentOrigins = process.env.NODE_ENV === 'production' ? [] : [
   'http://localhost:5005',
   'http://localhost:5173',
   'http://127.0.0.1:5005',
   'http://127.0.0.1:5173'
+];
+const allowedOrigins = [
+  ...envOrigins,
+  process.env.FRONTEND_URL,
+  process.env.PUBLIC_URL,
+  ...developmentOrigins
 ].filter(Boolean);
 
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
+    if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
       callback(new Error('Origin is not allowed by ShareT CORS policy'));
@@ -124,31 +143,39 @@ app.use(cors({
 }));
 
 app.use(express.json({
-  limit: '10mb',
+  limit: '1mb',
   verify: (req, res, buffer) => {
     if (req.originalUrl.startsWith('/api/trello-webhooks/')) {
       req.rawBody = Buffer.from(buffer);
     }
   }
 }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
-// Session configuration (using memory store for simplicity)
-// For production with cloud sync, consider using a PouchDB-based session store
-app.use(session({
-  secret: process.env.SESSION_SECRET || 'sharet-secret-key-change-in-production',
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    secure: process.env.NODE_ENV === 'production',
-    httpOnly: true,
-    maxAge: 14 * 24 * 60 * 60 * 1000,
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
+// Emergency controls are explicit and fail closed without stopping read-only diagnostics.
+app.use('/api', (req, res, next) => {
+  const readOnly = req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS';
+  if (process.env.MAINTENANCE_MODE === 'true' && !readOnly) {
+    return res.status(503).json({
+      success: false,
+      code: 'MAINTENANCE_MODE',
+      message: 'ShareT is temporarily read-only while maintenance is in progress'
+    });
   }
-}));
+  next();
+});
 
-// Health check endpoint
-app.get('/health', async (req, res) => {
+// Cheap liveness endpoint for process/container supervision.
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'alive',
+    timestamp: new Date().toISOString(),
+    uptimeSeconds: Math.floor(process.uptime())
+  });
+});
+
+// Readiness includes database and configuration state without exposing secrets.
+app.get('/ready', async (req, res) => {
   const cacheStats = getCacheStats();
   let dbStats = {};
   
@@ -158,8 +185,11 @@ app.get('/health', async (req, res) => {
     dbStats = { error: err.message };
   }
   
+  const runtime = inspectRuntimeEnvironment();
+  const maintenanceMode = process.env.MAINTENANCE_MODE === 'true';
+  const ready = dbInitialized && runtime.ok && !maintenanceMode;
   const health = {
-    status: dbInitialized ? 'healthy' : 'initializing',
+    status: ready ? 'ready' : 'not-ready',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
     database: {
@@ -173,45 +203,39 @@ app.get('/health', async (req, res) => {
       total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024) + 'MB'
     },
     cache: cacheStats,
-    features: [
-      'No database installation required',
-      'Local data storage',
-      'Optional cloud sync',
-      'Platform agnostic',
-      'Offline capable'
-    ],
-    optimizations: [
-      'PouchDB (16k+ ⭐)',
-      'Sirv Static Server',
-      'Pino Logger',
-      'LRU Cache',
-      'fast-json-stringify',
-      'rate-limiter-flexible'
-    ]
+    runtime: {
+      capabilities: runtime.capabilities,
+      warnings: runtime.warnings,
+      errors: runtime.errors
+    },
+    maintenanceMode
   };
   
-  res.status(dbInitialized ? 200 : 503).json(health);
+  res.status(ready ? 200 : 503).json(health);
 });
 
 // API Routes with rate limiting
-app.use('/api/auth', authRateLimit, authRoutes);
+app.use('/api/auth', apiRateLimit, authRoutes);
 app.use('/api/trello', apiRateLimit, trelloRoutes);
 app.use('/api/shared-links', apiRateLimit, sharedLinkRoutes);
-app.use('/api/shared-access', sharedLinkRateLimit, sharedAccessRoutes);
-app.use('/api/resources', apiRateLimit, resourceRoutes);
-app.use('/api/billing', apiRateLimit, billingRoutes);
+app.use('/api/shared-access', (req, res, next) => {
+  if (process.env.SHARET_DISABLE_PUBLIC_ACCESS === 'true') {
+    return res.status(503).json({
+      success: false,
+      code: 'PUBLIC_ACCESS_DISABLED',
+      message: 'Public ShareT links are temporarily disabled by the operator'
+    });
+  }
+  next();
+}, sharedLinkRateLimit, sharedAccessRoutes);
 app.use('/api/admin', apiRateLimit, adminRoutes);
 app.use('/api/trello-webhooks', trelloWebhookRoutes);
-
-// Serve Trello Power-Up static files
-const powerUpPath = path.join(__dirname, '..', 'power-up');
-if (fs.existsSync(powerUpPath)) {
-  app.use('/power-up', express.static(powerUpPath));
-}
+app.use('/api/connector', apiRateLimit, connectorRoutes);
 
 // Maintenance page
 const maintenancePath = path.join(__dirname, 'public', 'maintenance.html');
 app.get('/maintenance', (req, res) => {
+  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'");
   res.sendFile(maintenancePath, (err) => {
     if (err) {
       res.status(200).send(`
@@ -245,7 +269,7 @@ app.get('/maintenance', (req, res) => {
   });
 });
 
-// SIRV - 40% faster static file serving (GitHub: lukeed/sirv 1.2k+ ⭐)
+// Static serving with long-lived caching only for content-hashed assets.
 let frontendPath = path.join(__dirname, 'frontend', 'dist');
 
 // Fallback for local development
@@ -256,13 +280,20 @@ if (!fs.existsSync(frontendPath)) {
 // Only setup sirv if the directory actually exists (e.g. after a build)
 if (fs.existsSync(frontendPath)) {
   const sirvHandler = sirv(frontendPath, {
-    maxAge: 31536000,      // 1 year cache for assets
-    immutable: true,       // Assets won't change
+    maxAge: 0,
+    immutable: false,
     gzip: true,            // Enable gzip
     brotli: true,          // Enable brotli (better compression)
     etag: true,            // Enable ETags
     dotfiles: 'ignore',    // Security: ignore dotfiles
-    single: true           // SPA mode
+    single: true,
+    setHeaders: (res, pathname) => {
+      if (pathname.startsWith('assets/') || pathname.startsWith('/assets/')) {
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      } else {
+        res.setHeader('Cache-Control', 'no-cache');
+      }
+    }
   });
 
   // Use sirv for static files — skip API paths so they never get cached as HTML
@@ -331,6 +362,8 @@ let server;
 
 const startServer = async () => {
   try {
+    const runtime = validateRuntimeEnvironment();
+    runtime.warnings.forEach(message => logger.warn({ capability: 'runtime' }, message));
     // Initialize PouchDB databases
     await initDB();
     startReplyNotificationMonitor();
@@ -346,34 +379,9 @@ const startServer = async () => {
         health: `http://localhost:${PORT}/health`
       }, '🚀 ShareT Server started with PouchDB');
       
-      console.log(`
-╔════════════════════════════════════════════════════════════╗
-║               ShareT Server Ready (PouchDB)                 ║
-╠════════════════════════════════════════════════════════════╣
-║  Local:    http://localhost:${PORT}                          ║
-║  Health:   http://localhost:${PORT}/health                   ║
-║  API:      http://localhost:${PORT}/api                      ║
-╠════════════════════════════════════════════════════════════╣
-║  Database: PouchDB (No installation required!)              ║
-║  Data Dir: ${dataDir.substring(0, 40).padEnd(40)}   ║
-║  Cloud:    ${(process.env.COUCHDB_URL ? 'Enabled' : 'Disabled (local only)').padEnd(40)}   ║
-╠════════════════════════════════════════════════════════════╣
-║  Features:                                                  ║
-║  ✓ No database installation required                       ║
-║  ✓ Works on Windows, Mac, Linux                            ║
-║  ✓ Data stored locally in ./data                           ║
-║  ✓ Optional cloud sync via CouchDB                         ║
-║  ✓ Offline capable                                         ║
-╠════════════════════════════════════════════════════════════╣
-║  Optimizations Active:                                      ║
-║  ✓ PouchDB (platform agnostic)                             ║
-║  ✓ Sirv Static Server (40% faster)                         ║
-║  ✓ Pino Logger (10x faster)                                ║
-║  ✓ LRU Cache (reduced DB queries)                          ║
-║  ✓ fast-json-stringify (2x faster)                         ║
-║  ✓ rate-limiter-flexible (memory efficient)                ║
-╚════════════════════════════════════════════════════════════╝
-      `);
+      console.log(`ShareT ready at http://localhost:${PORT}`);
+      console.log(`Data directory: ${dataDir}`);
+      console.log(`CouchDB sync: ${process.env.COUCHDB_URL ? 'enabled' : 'disabled'}`);
 
       // The one misconfiguration that silently disables the Trello bell for
       // every freelancer comment. Without a relay token the only remaining

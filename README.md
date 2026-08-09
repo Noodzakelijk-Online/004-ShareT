@@ -16,6 +16,7 @@ Freelancer updates are relayed into Trello by a dedicated ShareT member. ShareT 
 - Route normal Trello replies back to the correct freelancer by email.
 - Preserve complete share-link history with pagination, copy, QR, status, and delete controls.
 - Store data locally in PouchDB, with optional CouchDB synchronization.
+- Connect HAI through a revocable, scoped credential and an OpenAPI contract.
 
 No Trello Power-Up panel is required for the conversation flow.
 
@@ -65,7 +66,7 @@ FRONTEND_URL=https://sharet.example.com
 CORS_ORIGIN=https://sharet.example.com
 
 JWT_SECRET=replace-with-a-long-random-secret
-SESSION_SECRET=replace-with-another-long-random-secret
+JWT_REFRESH_SECRET=replace-with-another-long-random-secret
 ENCRYPTION_KEY=replace-with-a-long-random-encryption-key
 
 TRELLO_API_KEY=your-trello-api-key
@@ -100,30 +101,35 @@ ShareT is a Node/Express application, not a static-only frontend. It needs an al
 For Docker:
 
 ```bash
-docker compose up -d --build
+docker compose --env-file .env.docker up -d --build
 docker compose ps
 ```
 
-The health endpoint is `GET /health`.
+The liveness endpoint is `GET /health`; deployment readiness is `GET /ready`. Run `npm run doctor` before startup, and use `npm run backup` before upgrades.
 
 ## API
 
-Authenticated endpoints expect the JWT returned by `POST /api/auth/login`:
+The browser uses secure HttpOnly authentication cookies. Non-browser API clients can opt into a short-lived bearer response by sending `X-ShareT-Token-Response: true` to the login endpoint:
 
 ```http
 Authorization: Bearer your_access_token
 ```
+
+For HAI, use **HAI connector** in the profile. ShareT creates a 90-day, revocable credential that is shown once and stored only as a hash. Give HAI the OpenAPI URL shown in that dialog (normally `/api/connector/openapi.json`) and the generated bearer token. Choose read-only or link-management access; password login credentials are never needed.
 
 ### Authentication
 
 | Method | Endpoint | Purpose |
 | --- | --- | --- |
 | POST | `/api/auth/register` | Create an account |
-| POST | `/api/auth/login` | Sign in and obtain tokens |
+| POST | `/api/auth/login` | Sign in and establish a secure cookie session |
 | POST | `/api/auth/logout` | Sign out |
 | GET | `/api/auth/me` | Read the current profile |
 | PUT | `/api/auth/profile` | Update the current profile |
 | PUT | `/api/auth/password` | Change the password |
+| GET | `/api/auth/export` | Download the account's ShareT data |
+| DELETE | `/api/auth/account` | Delete the account and owned data after password confirmation |
+| GET/POST/DELETE | `/api/auth/api-tokens` | List, create, or revoke HAI connector credentials |
 
 ### Trello
 
@@ -155,11 +161,14 @@ Public recipient operations live under `/api/shared-access/:shareId`. Comment-en
 
 Non-admin accounts receive a limited credit balance. Opening a Wise payment page does not grant credits. Credits are added only after payment confirmation through the protected admin workflow, which prevents browser-side credit spoofing.
 
+The obsolete prototype resource-metering and self-declared payment endpoints are intentionally not exposed. ShareT does not claim to measure billable CPU, memory, or bandwidth until a trusted server-side meter exists.
+
 ## Verification
 
 ```bash
 npm run build
-npx eslint src/App.jsx src/pages/App.jsx
+npm run lint
+npm run doctor
 
 cd backend
 npm test

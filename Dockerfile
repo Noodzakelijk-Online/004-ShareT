@@ -20,9 +20,6 @@ COPY backend/ ./backend/
 # Copy built frontend to backend's serving directory
 COPY --from=frontend-build /app/dist ./backend/frontend/dist
 
-# Copy power-up files (served at /power-up/ route)
-COPY power-up/ ./power-up/
-
 # Create data directory for PouchDB
 RUN mkdir -p /app/backend/data
 
@@ -36,7 +33,7 @@ ENV DATA_DIR=/app/backend/data
 EXPOSE 5005
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:5005/health || exit 1
+HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:5005/ready || exit 1
 
 CMD ["node", "server.js"]

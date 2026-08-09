@@ -21,13 +21,11 @@ import { PaymentDialog } from '../components/PaymentDialog';
 import { ThemeToggle } from '../components/ThemeToggle';
 import { trello } from '../api';
 
-const ADMIN_EMAIL = 'noodzakelijkonline@gmail.com';
-
 const App = () => {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
-  const isAdmin = currentUser?.email === ADMIN_EMAIL;
-  const { credits, refetch: refetchCredits } = useCredits();
+  const isAdmin = currentUser?.role === 'admin';
+  const { credits, loading: creditsLoading, error: creditsError, refetch: refetchCredits } = useCredits();
   const [shareType, setShareType] = useState("card");
   const [trelloData, setTrelloData] = useState(null);
   const [showQRCode, setShowQRCode] = useState(false);
@@ -131,7 +129,7 @@ const App = () => {
                 </div>
                 {!isAdmin && credits !== Infinity && (
                   <div className="flex items-center justify-between text-xs text-muted-foreground mb-2 px-1">
-                    <span>{credits} credits remaining</span>
+                    <span>{creditsLoading ? 'Loading credits…' : (creditsError ? 'Credits unavailable' : `${credits} credits remaining`)}</span>
                     <PaymentDialog />
                   </div>
                 )}

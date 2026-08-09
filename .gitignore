@@ -38,6 +38,8 @@ backend/.env.production
 # Build output
 dist/
 backend/frontend/dist/
+backups/
+support/
 
 # Logs
 *.log
