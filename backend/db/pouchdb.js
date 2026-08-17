@@ -53,6 +53,9 @@ async function createIndexes() {
     await databases.shared_links.createIndex({
       index: { fields: ['shareId'] }
     });
+    await databases.shared_links.createIndex({
+      index: { fields: ['userId', 'cardId'] }
+    });
     
     // Access logs index
     await databases.access_logs.createIndex({
