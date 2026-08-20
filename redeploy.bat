@@ -4,10 +4,9 @@ cd /d "%~dp0"
 title ShareT - One-Click Setup
 color 0A
 
-:: ── SETTINGS (edit if needed) ─────────────────────────────────
+:: ── SETTINGS ──────────────────────────────────────────────────
 set PORT=5005
 set "DOCKER_EXE=C:\Program Files\Docker\Docker\Docker Desktop.exe"
-set "NGROK_INSTALL_DIR=%LOCALAPPDATA%\ngrok"
 :: ──────────────────────────────────────────────────────────────
 
 :: Windows / Notepad sometimes saves ".env.docker" as ".env.docker.txt".
@@ -17,19 +16,16 @@ if not exist ".env.docker" if exist ".env.docker.txt" (
     ren ".env.docker.txt" ".env.docker"
 )
 
-:: Read PUBLIC_URL from .env.docker
+:: Read PUBLIC_URL and NGROK_AUTHTOKEN from .env.docker
 set "PUBLIC_URL="
+set "NGROK_AUTHTOKEN="
 if exist .env.docker (
     for /f "tokens=1,* delims==" %%A in ('findstr /B "PUBLIC_URL=" .env.docker') do (
         set "PUBLIC_URL=%%B"
     )
-)
-
-:: Extract domain from PUBLIC_URL (remove https:// / http://)
-set "NGROK_DOMAIN="
-if defined PUBLIC_URL (
-    set "NGROK_DOMAIN=!PUBLIC_URL:https://=!"
-    set "NGROK_DOMAIN=!NGROK_DOMAIN:http://=!"
+    for /f "tokens=1,* delims==" %%A in ('findstr /B "NGROK_AUTHTOKEN=" .env.docker') do (
+        set "NGROK_AUTHTOKEN=%%B"
+    )
 )
 
 cls
@@ -42,7 +38,7 @@ echo.
 :: ════════════════════════════════════════════════
 :: STEP 1  CHECK + START DOCKER
 :: ════════════════════════════════════════════════
-echo  [1/4] Checking Docker...
+echo  [1/3] Checking Docker Desktop...
 
 where docker >nul 2>&1
 if !errorlevel! neq 0 (
@@ -88,113 +84,49 @@ exit /b
 echo  [OK] Docker is running.
 
 :: ════════════════════════════════════════════════
-:: STEP 2  FIND OR DOWNLOAD NGROK
+:: STEP 2  CHECK NGROK AUTH TOKEN FOR DOCKER
 :: ════════════════════════════════════════════════
 echo.
-echo  [2/4] Checking ngrok CLI...
-set "NGROK_EXE="
+echo  [2/3] Checking ngrok configuration in .env.docker...
 
-:: Check PATH
-where ngrok >nul 2>&1
-if !errorlevel! equ 0 (
-    for /f "delims=" %%X in ('where ngrok') do set "NGROK_EXE=%%X"
-    goto ngrok_ok
-)
-
-:: Common locations
-if exist "%NGROK_INSTALL_DIR%\ngrok.exe"  ( set "NGROK_EXE=%NGROK_INSTALL_DIR%\ngrok.exe"  & goto ngrok_ok )
-if exist "%USERPROFILE%\ngrok.exe"        ( set "NGROK_EXE=%USERPROFILE%\ngrok.exe"        & goto ngrok_ok )
-if exist "C:\ngrok\ngrok.exe"             ( set "NGROK_EXE=C:\ngrok\ngrok.exe"             & goto ngrok_ok )
-if exist "C:\tools\ngrok\ngrok.exe"       ( set "NGROK_EXE=C:\tools\ngrok\ngrok.exe"       & goto ngrok_ok )
-if exist "%ProgramFiles%\ngrok\ngrok.exe" ( set "NGROK_EXE=%ProgramFiles%\ngrok\ngrok.exe" & goto ngrok_ok )
-if exist "%LOCALAPPDATA%\Microsoft\WinGet\Packages\Ngrok.Ngrok_Microsoft.Winget.Source_8wekyb3d8bbwe\ngrok.exe" (
-    set "NGROK_EXE=%LOCALAPPDATA%\Microsoft\WinGet\Packages\Ngrok.Ngrok_Microsoft.Winget.Source_8wekyb3d8bbwe\ngrok.exe"
-    goto ngrok_ok
-)
-
-:: Download ngrok if not found
-echo.
-echo  [..] ngrok not found. Downloading ngrok...
-if not exist "%NGROK_INSTALL_DIR%" mkdir "%NGROK_INSTALL_DIR%"
-powershell -NoProfile -Command "Invoke-WebRequest -Uri 'https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip' -OutFile '%TEMP%\ngrok.zip'"
-if !errorlevel! neq 0 (
-    echo  [!] Download failed. Check your internet connection.
-    echo      Manual install: https://ngrok.com/download
-    goto ngrok_done
-)
-powershell -NoProfile -Command "Expand-Archive -Path '%TEMP%\ngrok.zip' -DestinationPath '%NGROK_INSTALL_DIR%' -Force"
-set "NGROK_EXE=%NGROK_INSTALL_DIR%\ngrok.exe"
-if not exist "!NGROK_EXE!" (
-    echo  [!] Extract failed. Install manually: https://ngrok.com/download
-    set "NGROK_EXE="
-    goto ngrok_done
-)
-echo  [OK] ngrok downloaded to %NGROK_INSTALL_DIR%
-goto ngrok_ok
-
-:ngrok_ok
-echo  [OK] ngrok ready.
-
-:ngrok_done
-
-:: ════════════════════════════════════════════════
-:: STEP 2b  CHECK NGROK AUTH TOKEN
-:: ════════════════════════════════════════════════
-echo.
-echo  [2b/4] Checking ngrok auth token...
-
-if not defined NGROK_EXE goto token_skip
-
-set "NGROK_TOKEN="
-if exist .env.docker (
-    for /f "tokens=1,* delims==" %%A in ('findstr /B "NGROK_AUTHTOKEN=" .env.docker') do set "NGROK_TOKEN=%%B"
-)
-
-if defined NGROK_TOKEN (
-    "!NGROK_EXE!" config add-authtoken !NGROK_TOKEN! >nul 2>&1
-    echo  [OK] ngrok auth token configured from .env.docker.
-    goto token_skip
+if defined NGROK_AUTHTOKEN (
+    echo  [OK] ngrok auth token found in .env.docker.
+    goto token_done
 )
 
 echo.
-echo  [!] ngrok requires a free auth token to run.
+echo  [!] No ngrok auth token set in .env.docker.
+echo      ngrok runs safely inside Docker in the background.
+echo.
 echo      1. Go to: https://dashboard.ngrok.com/get-started/your-authtoken
-echo      2. Copy your authtoken (starts with something like: 2abc...)
+echo      2. Copy your authtoken
 echo.
-set "NGROK_TOKEN="
-set /p NGROK_TOKEN="Paste your ngrok authtoken here: "
-if not defined NGROK_TOKEN (
-    echo  [!] No token entered. ngrok will run in free mode (random URL).
-    goto token_skip
+set "TOK="
+set /p TOK="Paste your ngrok authtoken here (or press Enter to skip): "
+if not defined TOK (
+    echo  [!] Skipped. The public URL will NOT work until NGROK_AUTHTOKEN is set in .env.docker.
+    goto token_done
 )
+>>.env.docker echo NGROK_AUTHTOKEN=!TOK!
+echo  [OK] Saved ngrok auth token to .env.docker.
 
-:: Add the token to ngrok config
-echo  [..] Adding authtoken to ngrok config...
-"!NGROK_EXE!" config add-authtoken !NGROK_TOKEN!
-if !errorlevel! neq 0 (
-    echo  [!] Failed to add authtoken. Token may be invalid.
-    echo      ngrok will run in free mode (random URL).
-    goto token_skip
-)
-echo  [OK] ngrok auth token saved.
+:token_done
 
-:token_skip
-
-:: ════════════════════════════════════════════════
-:: STEP 3  START SHARET IN DOCKER
-:: ════════════════════════════════════════════════
-echo.
-echo  [3/4] Building and starting ShareT...
-echo        (first build: ~2 min  /  restart: ~20 sec)
-echo.
-
-:: Kill any existing ngrok windows so port isn't blocked
+:: Kill any stray host ngrok processes so they don't fight the Docker container session
 taskkill /F /IM ngrok.exe /T >nul 2>&1
 
-docker-compose up -d --build sharet autoheal
+:: ════════════════════════════════════════════════
+:: STEP 3  START DOCKER STACK (App + Ngrok + Autoheal)
+:: ════════════════════════════════════════════════
+echo.
+echo  [3/3] Building and starting ShareT stack in Docker...
+echo        (App + Background ngrok tunnel + Autoheal)
+echo.
+
+docker-compose up -d --build
 if !errorlevel! neq 0 (
     echo.
-    echo  [!] Docker build failed. See errors above.
+    echo  [!] Docker compose failed. See errors above.
     echo.
     pause
     exit /b
@@ -215,24 +147,12 @@ echo  [WARN] Health check timed out - ShareT may still be starting.
 :health_ok
 echo  [OK] ShareT is running.
 
-:: ════════════════════════════════════════════════
-:: STEP 4  START NGROK TERMINAL WINDOW
-:: ════════════════════════════════════════════════
-echo.
-echo  [4/4] Starting ngrok terminal window...
-if defined NGROK_EXE (
-    if defined NGROK_DOMAIN (
-        echo  [..] Using domain from .env.docker: !NGROK_DOMAIN!
-        start "ngrok - ShareT" cmd /k """!NGROK_EXE!"" http --domain=!NGROK_DOMAIN! %PORT%"
-    ) else (
-        echo  [..] Using random ngrok URL (free mode)
-        echo      Set PUBLIC_URL in .env.docker to use your fixed domain
-        start "ngrok - ShareT" cmd /k """!NGROK_EXE!"" http %PORT%"
-    )
-    timeout /t 3 /nobreak >nul
-    echo  [OK] ngrok window opened.
+:: Check if ngrok container is running
+docker ps --filter "name=sharet-ngrok" --filter "status=running" --format "{{.Names}}" | findstr "sharet-ngrok" >nul 2>&1
+if !errorlevel! equ 0 (
+    echo  [OK] Background ngrok tunnel is active in Docker.
 ) else (
-    echo  [!] ngrok not found. Start ngrok manually if you need a public URL.
+    echo  [WARN] ngrok container is starting or needs NGROK_AUTHTOKEN in .env.docker.
 )
 
 :: Open browser
@@ -244,28 +164,23 @@ start "" http://localhost:%PORT%
 cls
 echo.
 echo  ============================================================
-echo    ShareT is RUNNING
+echo    ShareT is RUNNING (Managed by Docker)
 echo  ============================================================
 echo.
-echo    Local:   http://localhost:%PORT%
-echo.
-if defined NGROK_EXE (
-    if defined NGROK_DOMAIN (
-        echo    Public:  https://!NGROK_DOMAIN!
-        echo             This is the URL from your .env.docker PUBLIC_URL setting.
-        echo             Share this URL with clients - it never changes.
-    ) else (
-        echo    Public:  Check the [ngrok - ShareT] window for your URL
-        echo             It looks like: https://xxxx-xx-xx.ngrok-free.app
-    )
+echo    Local URL:   http://localhost:%PORT%
+if defined PUBLIC_URL (
+    echo    Public URL:  !PUBLIC_URL!
+    echo                 (Managed automatically in background by Docker)
 ) else (
-    echo    Public:  (ngrok not running)
+    echo    Public URL:  Check your .env.docker PUBLIC_URL setting
 )
 echo.
 echo  ============================================================
-echo    To STOP:     docker-compose down
-echo                 (and close the ngrok window)
-echo    To RESTART:  run this file again
+echo    Useful Docker Commands:
+echo      View App Logs:    docker logs -f sharet-app
+echo      View Ngrok Logs:  docker logs -f sharet-ngrok
+echo      Stop ShareT:      docker-compose down
+echo      Restart:          redeploy.bat
 echo  ============================================================
 echo.
 pause
