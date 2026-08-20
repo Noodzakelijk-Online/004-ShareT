@@ -14,7 +14,7 @@
  * delivery fallback, but Trello intentionally suppresses self-notifications.
  */
 
-const { SharedLink, TrelloConnection, AccessLog, ShareParticipant, CommentThread } = require('../db/pouchdb');
+const { SharedLink, TrelloConnection, AccessLog, ShareParticipant, CommentThread, Notification } = require('../db/pouchdb');
 const { sendShareTUpdateNotification } = require('../utils/notificationService');
 const { ensureTrelloWebhook } = require('../services/trelloWebhookService');
 
@@ -430,6 +430,25 @@ exports.addComment = async (req, res) => {
       postedBy: postedWith.label,
       bellExpected: trelloNotification.bellExpected
     });
+
+    // Create in-app notification for the board owner / admin
+    try {
+      const cardName = share.cardTitle || share.cardName || share.boardName || 'Shared Card';
+      await Notification.create({
+        userId: share.userId,
+        type: 'comment',
+        title: `${normalizeAuthorName(authorName)} commented on ${cardName}`,
+        message: text.trim(),
+        authorName: normalizeAuthorName(authorName),
+        authorEmail,
+        shareId: req.params.shareId,
+        cardId: share.cardId,
+        cardTitle: cardName,
+        linkUrl: `/shared/${req.params.shareId}/card`
+      });
+    } catch (notifErr) {
+      console.error('Failed to create in-app notification:', notifErr.message);
+    }
 
     const postingMember = getPostingMember(comment);
     res.json({

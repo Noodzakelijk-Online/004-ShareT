@@ -42,6 +42,7 @@ const sharedAccessRoutes = require('./routes/sharedAccessRoutes');
 const resourceRoutes = require('./routes/resourceRoutes');
 const billingRoutes = require('./routes/billingRoutes');
 const adminRoutes = require('./routes/adminRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
 const trelloWebhookRoutes = require('./routes/trelloWebhookRoutes');
 const { startReplyNotificationMonitor, stopReplyNotificationMonitor } = require('./services/replyNotificationService');
 const { reconcileActiveTrelloWebhooks } = require('./services/trelloWebhookService');
@@ -201,6 +202,7 @@ app.use('/api/shared-access', sharedLinkRateLimit, sharedAccessRoutes);
 app.use('/api/resources', apiRateLimit, resourceRoutes);
 app.use('/api/billing', apiRateLimit, billingRoutes);
 app.use('/api/admin', apiRateLimit, adminRoutes);
+app.use('/api/notifications', apiRateLimit, notificationRoutes);
 app.use('/api/trello-webhooks', trelloWebhookRoutes);
 
 // Serve Trello Power-Up static files

@@ -26,7 +26,8 @@ async function initDatabases(dataDir = './data') {
   const dbNames = ['users', 'trello_connections', 'shared_links', 'access_logs',
                    'email_verifications', 'share_participants', 'comment_threads',
                    'trello_webhooks', 'trello_reply_events',
-                   'resource_usage', 'billing', 'resource_pricing', 'shares'];
+                   'resource_usage', 'billing', 'resource_pricing', 'shares',
+                   'notifications'];
   
   dbNames.forEach(name => {
     databases[name] = new PouchDB(`${dataDir}/${name}`, { auto_compaction: true });
@@ -107,6 +108,14 @@ async function createIndexes() {
     // Trello connections index
     await databases.trello_connections.createIndex({
       index: { fields: ['userId'] }
+    });
+
+    // Notifications indexes
+    await databases.notifications.createIndex({
+      index: { fields: ['userId', 'createdAt'] }
+    });
+    await databases.notifications.createIndex({
+      index: { fields: ['userId', 'isRead'] }
     });
 
     // Shared links indexes
@@ -1154,6 +1163,95 @@ async function getStats() {
   return stats;
 }
 
+/**
+ * Notification Model Operations
+ */
+const Notification = {
+  async create(data) {
+    const id = generateId();
+    const now = new Date().toISOString();
+    const notification = {
+      _id: id,
+      type: 'notification',
+      userId: data.userId,
+      notificationType: data.type || 'comment',
+      title: data.title || 'New comment on shared card',
+      message: data.message || '',
+      authorName: data.authorName || 'Freelancer',
+      authorEmail: data.authorEmail || null,
+      shareId: data.shareId,
+      cardId: data.cardId || null,
+      cardTitle: data.cardTitle || 'Shared Card',
+      linkUrl: data.linkUrl || `/shared/${data.shareId}/card`,
+      isRead: false,
+      createdAt: now,
+      updatedAt: now
+    };
+
+    await databases.notifications.put(notification);
+    return notification;
+  },
+
+  async findByUserId(userId, options = {}) {
+    const limit = Math.min(options.limit || 50, 100);
+    const result = await databases.notifications.find({
+      selector: { userId }
+    });
+    const docs = (result.docs || []).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    return docs.slice(0, limit);
+  },
+
+  async countUnread(userId) {
+    const result = await databases.notifications.find({
+      selector: { userId, isRead: false }
+    });
+    return result.docs ? result.docs.length : 0;
+  },
+
+  async markAsRead(id, userId) {
+    try {
+      const doc = await databases.notifications.get(id);
+      if (doc && doc.userId === userId) {
+        doc.isRead = true;
+        doc.updatedAt = new Date().toISOString();
+        await databases.notifications.put(doc);
+        return doc;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  },
+
+  async markAllAsRead(userId) {
+    const result = await databases.notifications.find({
+      selector: { userId, isRead: false }
+    });
+    const updated = [];
+    const now = new Date().toISOString();
+    for (const doc of result.docs || []) {
+      doc.isRead = true;
+      doc.updatedAt = now;
+      await databases.notifications.put(doc);
+      updated.push(doc);
+    }
+    return updated.length;
+  },
+
+  async delete(id, userId) {
+    try {
+      const doc = await databases.notifications.get(id);
+      if (doc && doc.userId === userId) {
+        await databases.notifications.remove(doc);
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  }
+};
+
 module.exports = {
   initDatabases,
   setupSync,
@@ -1174,5 +1272,6 @@ module.exports = {
   ReplyEvent,
   ResourceUsage,
   Billing,
-  ResourcePricing
+  ResourcePricing,
+  Notification
 };

@@ -19,6 +19,7 @@ import { useAuth } from '../contexts/AuthContext';
 import ApiDocumentation from '../components/ApiDocumentation';
 import { PaymentDialog } from '../components/PaymentDialog';
 import { ThemeToggle } from '../components/ThemeToggle';
+import { NotificationCenter } from '../components/NotificationCenter';
 import { trello } from '../api';
 
 const ADMIN_EMAIL = 'noodzakelijkonline@gmail.com';
@@ -89,7 +90,8 @@ const App = () => {
           <CardHeader>
             <div className="flex justify-between items-center">
               <CardTitle>External Share</CardTitle>
-              <div className="flex space-x-2">
+              <div className="flex items-center space-x-2">
+                <NotificationCenter />
                 <Button 
                   variant="outline" 
                   size="sm" 

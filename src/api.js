@@ -327,6 +327,14 @@ export const billing = {
 
 };
 
+// In-App Notifications API
+export const notifications = {
+  getAll: (limit = 50) => apiRequest(`/notifications?limit=${limit}`),
+  markAsRead: (id) => apiRequest(`/notifications/${id}/read`, { method: 'PATCH' }),
+  markAllAsRead: () => apiRequest('/notifications/mark-all-read', { method: 'POST' }),
+  delete: (id) => apiRequest(`/notifications/${id}`, { method: 'DELETE' }),
+};
+
 export default {
   auth,
   trello,
@@ -334,4 +342,6 @@ export default {
   sharedAccess,
   resources,
   billing,
+  notifications,
 };
+
