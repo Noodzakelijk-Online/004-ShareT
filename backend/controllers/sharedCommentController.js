@@ -83,6 +83,60 @@ async function postTrelloComment({ cardId, text, key, token }) {
   });
 }
 
+// Automatically ensure the bot/relay is a member of the board (works for private boards too)
+const botBoardMemberships = new Set();
+
+async function ensureRelayMemberOfBoard({ cardId, boardId, key, ownerToken, botToken }) {
+  if (!ownerToken || !botToken || !key) return { added: false, reason: 'missing-credentials' };
+
+  try {
+    const botMember = await trelloApiRequest({
+      path: '/members/me',
+      key,
+      token: botToken,
+      params: { fields: 'id,username' },
+      operation: 'bot member lookup'
+    });
+
+    if (!botMember?.id) return { added: false, reason: 'no-bot-id' };
+
+    let targetBoardId = boardId;
+    if (!targetBoardId && cardId) {
+      const card = await trelloApiRequest({
+        path: `/cards/${cardId}`,
+        key,
+        token: ownerToken,
+        params: { fields: 'idBoard' },
+        operation: 'card board lookup'
+      });
+      targetBoardId = card?.idBoard;
+    }
+
+    if (!targetBoardId) return { added: false, reason: 'no-board-id' };
+
+    const cacheKey = `${targetBoardId}:${botMember.id}`;
+    if (botBoardMemberships.has(cacheKey)) {
+      return { added: true, cached: true, memberId: botMember.id, boardId: targetBoardId };
+    }
+
+    // Use the board owner's token to automatically add the bot as a member of the board
+    await trelloApiRequest({
+      path: `/boards/${targetBoardId}/members/${botMember.id}`,
+      key,
+      token: ownerToken,
+      method: 'PUT',
+      params: { type: 'normal' },
+      operation: 'board member invite'
+    });
+
+    botBoardMemberships.add(cacheKey);
+    return { added: true, cached: false, memberId: botMember.id, boardId: targetBoardId };
+  } catch (error) {
+    console.warn(`[Trello Auto-Invite] Board membership check for bot: ${error.message}`);
+    return { added: false, error: error.message };
+  }
+}
+
 async function ensureRelayAssignedToCard({ cardId, key, token }) {
   const member = await trelloApiRequest({
     path: '/members/me',
@@ -342,6 +396,17 @@ exports.addComment = async (req, res) => {
 
     for (const candidate of tokenCandidates) {
       try {
+        if (candidate.autoAssignToCard && candidate.token !== connection.trelloToken) {
+          // Auto-invite bot to the board using the owner's token if the board is private
+          await ensureRelayMemberOfBoard({
+            cardId: share.cardId,
+            boardId: share.boardId,
+            key,
+            ownerToken: connection.trelloToken,
+            botToken: candidate.token
+          });
+        }
+
         const relayAssignment = candidate.autoAssignToCard
           ? await ensureRelayAssignedToCard({
               cardId: share.cardId,
