@@ -60,3 +60,10 @@ test('FAQ questions expose accessible expandable controls with the account answe
   assert.equal((html.match(/aria-expanded="false"/g) || []).length, 2);
   assert.match(html, /No\. They open your ShareT link/);
 });
+
+test('each example message has one live announcement without repeating its mirrored preview', () => {
+  const html = render();
+  assert.equal((html.match(/aria-live="polite"/g) || []).length, 2);
+  assert.doesNotMatch(html, /class="preview-update"[^>]*aria-live/);
+  assert.doesNotMatch(html, /class="preview-thread"[^>]*aria-live/);
+});

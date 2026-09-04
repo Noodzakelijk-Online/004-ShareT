@@ -13,10 +13,10 @@ function Person({ person }) {
   return <Avatar className="preview-avatar"><AvatarImage src={`/marketing/${alex ? 'alex' : 'jamie'}.webp`} alt="" /><AvatarFallback>{alex ? 'AM' : 'JL'}</AvatarFallback></Avatar>;
 }
 
-function Comment({ bot = false, children }) {
+function Comment({ bot = false, announce = false, children }) {
   return <div className="preview-comment">
     {bot ? <span className="preview-bot"><Link2 aria-hidden="true" /></span> : <Person person="Jamie Lee" />}
-    <div className="preview-comment-body"><div className="preview-comment-author"><strong>{bot ? 'ShareT' : 'Jamie Lee'}</strong><span>{bot ? 'Today at 10:15' : 'Today at 10:42'}</span></div><p>{children}</p></div>
+    <div className="preview-comment-body"><div className="preview-comment-author"><strong>{bot ? 'ShareT' : 'Jamie Lee'}</strong><span>{bot ? 'Today at 10:15' : 'Today at 10:42'}</span></div><p aria-live={announce ? 'polite' : undefined} aria-atomic={announce ? true : undefined}>{children}</p></div>
   </div>;
 }
 
@@ -46,9 +46,9 @@ export function TrelloPreview({ update, reply, onReply, compact = false }) {
     <div className="preview-window-content">
       <h3>Website redesign</h3>
       <div className="preview-toolbar" aria-hidden="true"><MessageCircle /><span>Comment</span><SlidersHorizontal /><span>Filter</span><MoreHorizontal /></div>
-      <div className="preview-thread" aria-live={compact ? 'off' : 'polite'} aria-atomic="true">
-        <Comment bot>Alex Morgan: {update}</Comment>
-        <Comment>{reply}</Comment>
+      <div className="preview-thread">
+        <Comment bot announce={!compact}>Alex Morgan: {update}</Comment>
+        <Comment announce={!compact}>{reply}</Comment>
       </div>
       {compact ? <div className="preview-static-input" aria-hidden="true">Write a reply…</div> : <Composer kind="reply" onSend={onReply} />}
     </div>
@@ -64,7 +64,7 @@ export default function ConversationPreview({ update, reply, onUpdate, onReply }
         <div className="preview-window-content">
           <h3>Website redesign</h3>
           <div className="preview-person"><Person person="Alex Morgan" /><span>Alex Morgan</span></div>
-          <p className="preview-update" aria-live="polite">{update}</p>
+          <p className="preview-update">{update}</p>
           <Composer kind="update" onSend={onUpdate} />
         </div>
       </div>
