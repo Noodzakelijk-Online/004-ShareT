@@ -14,7 +14,7 @@
 - [x] Interface: replace Wise dialog with wallet, explicit checkout status, configurable-ready state, rate table, paginated audit history, low-balance warning and refresh on focus/return; keep accessible shared UI components. Purchasing must not require connecting Trello first.
 - [x] Operations: document environment, receipt contract and allocation limits, refund/dispute workflow, storage backup, staged activation, provider testing and rollback. Never claim unimplemented host collection exists.
 - [x] Verify backend tests, targeted frontend lint, frontend build, dependency findings, isolated HTTP/UI smoke; review diff and secret exclusions. Independent review fixes cover background wallet guards, invalid checkout-reference recovery and an exclusive billing-writer lock. Browser checks use API fixtures, not Stripe or hosting acceptance.
-- [ ] Publish this feature branch as a draft PR against main without merging (publication status is recorded in the PR, not assumed by this plan).
+- [x] Published this feature branch as [draft PR #156](https://github.com/Robert-Velhorst/004-ShareT/pull/156) against main without merging. Live check status is recorded in the PR.
 - [ ] Developer-only activation: manual Hetzner migration, tenant usage collector, invoice reconciliation and real Stripe sandbox acceptance. These are deliberately not represented as implemented or verified.
 
 ## Resource accounting decision
